@@ -25,7 +25,8 @@ def main(argv):
                         bn_filters=filter_bottleneck, 
                         filter_shape=filter_shape, 
                         residual=args.res, 
-                        pixel_shuffler=args.ps)
+                        pixel_shuffler=args.ps,
+                        dropout_rate=args.dr)
 
     model.compile(optimizer=tf.keras.optimizers.Nadam(lr=args.lr),
                   loss=utils.combined_loss(l_ssim=args.l_ssim, l_mae=args.l_mae, l_mse=args.l_mse),
@@ -68,6 +69,7 @@ if __name__ == '__main__':
     parser.add_argument('--f3',   default=16, type=int, help='filter 3')
     parser.add_argument('--f4',   default=16, type=int, help='filter 4')
     parser.add_argument('--fbn',  default=16, type=int, help='filter bottleneck')
+    parser.add_argument('--dr',  default=0, type=float, help='dropout rate')
 
     # Optimization Params
     parser.add_argument('--lr', default=0.002, type=float, help='learning_rate')

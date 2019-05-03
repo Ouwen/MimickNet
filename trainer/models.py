@@ -1,22 +1,7 @@
 import tensorflow as tf
 import numpy as np
-from keras_subpixel import Subpixel
 
-def PS_2x_upsample(X):
-    def _phase_shift(I, r):
-        # Helper function with main phase shift operation
-        bsize, a, b, c = I.get_shape().as_list()
-        X = tf.reshape(I, (bsize, a, b, r, r))
-        X = tf.transpose(X, (0, 1, 2, 4, 3))  # bsize, a, b, 1, 1
-        X = tf.split(1, a, X)  # a, [bsize, b, r, r]
-        X = tf.concat(2, [tf.squeeze(x) for x in X])  # bsize, b, a*r, r
-        X = tf.split(1, b, X)  # b, [bsize, a*r, r]
-        X = tf.concat(2, [tf.squeeze(x) for x in X])  #
-        bsize, a*r, b*r
-        return tf.reshape(X, (bsize, a*r, b*r, 1))
-    return _phase_shift(X, 2)
-
-def unet(activation=tf.nn.relu, padding='same', shape=(None, None, 1), 
+def unet(activation=tf.nn.relu, padding='same', shape=(None, None, 1), dropout_rate=0,
          filters=[16, 16, 16, 16], bn_filters=16, filter_shape=(3,3), residual=False, pixel_shuffler=False):
     downsample_path = []
     inputs = tf.keras.layers.Input(shape=shape)
@@ -26,7 +11,9 @@ def unet(activation=tf.nn.relu, padding='same', shape=(None, None, 1),
     for idx, filter_num in enumerate(filters):
         short_x = tf.keras.layers.Conv2D(filter_num, (1,1), activation=activation, padding=padding)(x)
         x = tf.keras.layers.Conv2D(filter_num, filter_shape, activation=activation, padding=padding)(x)
+        x = tf.keras.layers.Dropout(dropout_rate)(x)
         x = tf.keras.layers.Conv2D(filter_num, filter_shape, activation=activation, padding=padding)(x)
+        x = tf.keras.layers.Dropout(dropout_rate)(x)
         x = tf.keras.layers.Add()([x, short_x]) if residual else x
         downsample_path.append(x)
         x = tf.keras.layers.MaxPool2D(padding=padding)(x)
@@ -34,7 +21,9 @@ def unet(activation=tf.nn.relu, padding='same', shape=(None, None, 1),
     # Bottleneck
     short_x = tf.keras.layers.Conv2D(bn_filters, (1,1), activation=activation, padding=padding)(x)
     x = tf.keras.layers.Conv2D(bn_filters, filter_shape, activation=activation, padding=padding)(x)
+    x = tf.keras.layers.Dropout(dropout_rate)(x)
     x = tf.keras.layers.Conv2D(bn_filters, filter_shape, activation=activation, padding=padding)(x)
+    x = tf.keras.layers.Dropout(dropout_rate)(x)
     x = tf.keras.layers.Add()([x, short_x]) if residual else x
     
     downsample_path.reverse()
@@ -44,15 +33,15 @@ def unet(activation=tf.nn.relu, padding='same', shape=(None, None, 1),
     # Upsampling path
     for idx, filter_num in enumerate(filters):
         if pixel_shuffler:
-            x = Subpixel(filter_num, filter_shape, 2, activation=activation)(x)
+            x = tf.keras.layers.Lambda(lambda x: tf.depth_to_space(x, 2))(x)
         else:
             x = tf.keras.layers.Conv2DTranspose(filter_num, 2, 2, padding=padding)(x)
         x = tf.keras.layers.concatenate([x, downsample_path[idx]])
-        
         short_x = tf.keras.layers.Conv2D(bn_filters, (1,1), activation=activation, padding=padding)(x)
-
         x = tf.keras.layers.Conv2D(filter_num, filter_shape, activation=activation, padding=padding)(x)
+        x = tf.keras.layers.Dropout(dropout_rate)(x)
         x = tf.keras.layers.Conv2D(filter_num, filter_shape, activation=activation, padding=padding)(x)
+        x = tf.keras.layers.Dropout(dropout_rate)(x)
         x = tf.keras.layers.Add()([x, short_x]) if residual else x
 
     outputs = tf.keras.layers.Conv2D(1, 1)(x)

@@ -5,7 +5,7 @@ trainingInput:
     goal: MAXIMIZE
     hyperparameterMetricTag: epoch_val_ssim
     maxTrials: 1000
-    maxParallelTrials: 10
+    maxParallelTrials: 15
     enableTrialEarlyStopping: TRUE
     params:
     - parameterName: lg_c
@@ -57,6 +57,11 @@ trainingInput:
       type: INTEGER
       minValue: 8
       maxValue: 1024
+      scaleType: UNIT_LINEAR_SCALE
+    - parameterName: dr
+      type: DOUBLE
+      minValue: 0
+      maxValue: 1
       scaleType: UNIT_LINEAR_SCALE
     - parameterName: lr
       type: DOUBLE
