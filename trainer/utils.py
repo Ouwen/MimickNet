@@ -4,15 +4,16 @@ import scipy.io as sio
 import numpy as np
 
 class MimickDataset():
-	def __init__(self, height=1024, width=64, log_compress=True, complex_type=False,
+	def __init__(self, height=1024, width=64, log_compress=True,
 				 image_dir=None, bucket_dir='gs://duke-research-us/mimicknet/data'):
 		self.height = height
 		self.width = width
 		self.log_compress = log_compress
-		self.complex_type
+		self.image_dir = image_dir
+		self.bucket_dir = bucket_dir
 
 	def read_mat_generator(self):
-		def read_mat_op(filename, height=self.height, width=self.width, log_compress=self.log_compress, complex_type=self.complex_type, 
+		def read_mat_op(filename, height=self.height, width=self.width, log_compress=self.log_compress, 
 						image_dir=self.image_dir, bucket_dir=self.bucket_dir):
 			def _read_mat(filename):
 				filepath = tf.gfile.Open('{}/{}'.format(bucket_dir, filename.decode("utf-8")), 'rb')
@@ -24,8 +25,7 @@ class MimickDataset():
 				dtce = (dtce - dtce.min())/(dtce.max() - dtce.min())
 				
 				iq = matfile['iq']
-				iq = iq if complex_type abs(iq)
-				iq = np.log10(iq) if log_compress and not complex_type iq
+				iq = np.log10(iq) if log_compress else iq
 				iq = (iq-iq.min())/(iq.max() - iq.min())
 				shape = iq.shape
 				
@@ -63,11 +63,9 @@ class MimickDataset():
 					dtce = dtce[:, start:start+width]
 					iq = iq[:, start:start+width]
 
-				iq = iq.astype('complex64') if complex_type iq.astype('float32')
-				return iq, dtce.astype('float32')
+				return iq.astype('float32'), dtce.astype('float32')
 
-			iq_dtype = tf.float32 if complex_type tf.complex64
-			output = tf.py_func(_read_mat, [filename], [iq_dtype, tf.float32])
+			output = tf.py_func(_read_mat, [filename], [tf.float32, tf.float32])
 			iq = tf.reshape(output[0], (height, width, 1))
 			dtce = tf.reshape(output[1], (height, width, 1))
 			return iq, dtce
@@ -82,18 +80,18 @@ class MimickDataset():
 		return dataset, count
 
 	def get_paired_ultrasound_dataset(self, csv='./data/training-v1.csv', batch_size=16):
-		dataset, count = get_dataset(csv)
+		dataset, count = self.get_dataset(csv)
 		dataset = dataset.batch(batch_size).prefetch(batch_size)
 		return dataset, count
 
 	def get_unpaired_ultrasound_dataset(self, domain, csv=None, batch_size=16):
 		if domain == 'iq':
-			csv = './data/training_a.csv' if csv is None csv
-			dataset, count = get_dataset(csv)
+			csv = './data/training_a.csv' if csv is None else csv
+			dataset, count = self.get_dataset(csv)
 			dataset = dataset.map(lambda iq, dtce: iq)
 		
 		elif domain == 'dtce':
-			csv = './data/training_b.csv' if csv is None csv
+			csv = './data/training_b.csv' if csv is None else csv
 			dataset, count = get_dataset(csv)
 			dataset = dataset.map(lambda iq, dtce: iq)
 		else:
@@ -110,7 +108,6 @@ class GenerateImages(tf.keras.callbacks.Callback):
 						('phantom', 'verasonics.20180206194115_channelData_part11_0.mat')]):
 		super()
 		self.step_count = 0
-		self.model_name = model_name
 		self.interval = interval
 		self.forward = forward
 		self.writer = tf.summary.FileWriter(log_dir)
@@ -191,19 +188,19 @@ def combined_loss(l_ssim=0.8, l_mae=0.1, l_mse=0.1):
 	return _combined_loss
 
 def get_name(args, model):
-	args_dict = var(args)
+	args_dict = args.__dict__
 	name = model + '_'
-	for key, value in args:
-		if key == True:
+	for key, value in args_dict.items():
+		if value == True:
 			name += key + ','
-		else:
-			name += key + '_' + str(value) + '_'
+		elif value != False:
+			name += key + '_' + str(value) + ','
 	return name[:-1]
 
 def mat2model(matfile_path, log_compress=True):
 	matfile = sio.loadmat(matfile_path)
 	iq = abs(matfile['iq'])
-	iq = np.log10(iq) if log_compress iq
+	iq = np.log10(iq) if log_compress else iq
 	iq = (iq-iq.min())/(iq.max() - iq.min())
 	
 	dtce = matfile['dtce']
