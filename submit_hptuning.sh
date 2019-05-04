@@ -13,4 +13,5 @@ gcloud ai-platform jobs submit training $JOB_NAME \
     --job-dir $JOB_DIR \
     --region $REGION \
     --package-path trainer \
+    --python-version 3.5 \
     --config hptuning_config.yaml

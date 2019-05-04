@@ -2,6 +2,8 @@ import tensorflow as tf
 import pandas as pd
 import scipy.io as sio
 import numpy as np
+import os
+from tensorflow.python.lib.io import file_io
 
 class MimickDataset():
     def __init__(self, height=1024, width=256, log_compress=True,
@@ -67,6 +69,9 @@ class MimickDataset():
         return read_mat_op
 
     def get_dataset(self, csv):
+        my_path = os.path.abspath(os.path.dirname(__file__))
+        csv = os.path.join(my_path, csv)
+        
         filelist = list(pd.read_csv(csv)['filename'])
         count = len(filelist)
         dataset = tf.data.Dataset.from_tensor_slices(filelist)
@@ -74,7 +79,7 @@ class MimickDataset():
         dataset = dataset.map(self.read_mat_generator(), num_parallel_calls=tf.data.experimental.AUTOTUNE)
         return dataset, count
 
-    def get_paired_ultrasound_dataset(self, csv='./data/training-v1.csv', batch_size=16):
+    def get_paired_ultrasound_dataset(self, csv='data/training-v1.csv', batch_size=16):
         dataset, count = self.get_dataset(csv)
         dataset = dataset.batch(batch_size).prefetch(batch_size)
         return dataset, count
@@ -95,6 +100,25 @@ class MimickDataset():
         dataset = dataset.batch(batch_size).prefetch(batch_size)
         return dataset, count
 
+class CopyKerasModel(tf.keras.callbacks.Callback):
+    def __init__(self, model_dir, job_dir):
+        super()
+        self.model_dir = model_dir
+        self.job_dir = job_dir
+        self.model_files = []
+    
+    def upload_files(self):
+        files = [f for f in os.listdir(self.model_dir) if os.path.isfile(os.path.join(self.model_dir, f))]
+        for f in files:
+            if '.hdf5' in f and f not in self.model_files:
+                self.model_files.append(f)
+                with file_io.FileIO(os.path.join(self.model_dir, f), mode='rb') as input_f:
+                    with file_io.FileIO(os.path.join(self.job_dir, f), mode='wb+') as of:
+                        of.write(input_f.read())
+    
+    def on_epoch_end(self, epoch, logs):
+        self.upload_files()
+    
 class GenerateImages(tf.keras.callbacks.Callback):
     def __init__(self, forward, log_dir, interval=1000, log_compress=True,
                  image_dir=None, bucket_dir='gs://duke-research-us/mimicknet/data/duke-ultrasound-v1', 

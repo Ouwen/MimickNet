@@ -1,13 +1,14 @@
 import tensorflow as tf
 import argparse
 import sys
-import utils
-import models
+from trainer import utils
+from trainer import models
 
 def main(argv):
     args = parser.parse_args()
-    LOG_DIR = args.job_dir# + '/' + utils.get_name(args, 'unet')
-
+    LOG_DIR = args.job_dir # + '/' + utils.get_name(args, 'unet')
+    MODEL_DIR = '.'
+    
     activation = tf.nn.selu if args.actv == 'selu' else tf.nn.relu
 
     filter_shape = (args.f_h, args.f_w)
@@ -16,8 +17,8 @@ def main(argv):
 
     mimick_dataset = utils.MimickDataset(height=args.in_h, width=args.in_w, log_compress=args.lg_c)
 
-    train_dataset, count = mimick_dataset.get_paired_ultrasound_dataset(csv='./data/training-v1.csv', batch_size=args.bs)
-    test_dataset, count = mimick_dataset.get_paired_ultrasound_dataset(csv='./data/testing-v1.csv', batch_size=args.bs)
+    train_dataset, count = mimick_dataset.get_paired_ultrasound_dataset(csv='data/training-v1.csv', batch_size=args.bs)
+    test_dataset, count = mimick_dataset.get_paired_ultrasound_dataset(csv='data/testing-v1.csv', batch_size=args.bs)
 
     model = models.unet(shape=(None, None, 1),
                         activation=activation, 
@@ -33,19 +34,19 @@ def main(argv):
                   metrics=['mae', 'mse', utils.ssim, utils.psnr])
     
     tensorboard = tf.keras.callbacks.TensorBoard(log_dir=LOG_DIR, write_graph=True)
-    saving = tf.keras.callbacks.ModelCheckpoint(LOG_DIR + '/model.{epoch:02d}-{val_loss:.10f}.hdf5', 
+    saving = tf.keras.callbacks.ModelCheckpoint(MODEL_DIR + '/model.{epoch:02d}-{val_loss:.10f}.hdf5', 
                                                 monitor='val_loss', verbose=1, period=1, save_best_only=True)
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, min_lr=1e-6, min_delta=0.00001)
     image_gen = utils.GenerateImages(model, LOG_DIR, log_compress=args.lg_c, interval=int(count/args.bs/4))
+    copy_keras = utils.CopyKerasModel(MODEL_DIR, LOG_DIR)
 
     model.fit(train_dataset,
-              steps_per_epoch=int(count/args.bs),
-              epochs=100,
+              steps_per_epoch=10, #int(count/args.bs),
+              epochs=2,
               validation_data=test_dataset,
-              validation_steps=int(count/args.bs),
+              validation_steps=10, #int(count/args.bs),
               verbose=1,
-              callbacks=[tensorboard, saving, reduce_lr, image_gen])
-    return 0
+              callbacks=[tensorboard, saving, reduce_lr, image_gen, copy_keras])
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -78,6 +79,6 @@ if __name__ == '__main__':
     parser.add_argument('--l_mse', default=0.1, type=float, help='ssim mse')
 
     # Cloud ML Params
-    parser.add_argument('--job_dir', default='gs://duke-research-us/mimicknet/experiments', help='Job directory for Google Cloud ML')
+    parser.add_argument('--job-dir', default='gs://duke-research-us/mimicknet/experiments', help='Job directory for Google Cloud ML')
     
     main(sys.argv)
