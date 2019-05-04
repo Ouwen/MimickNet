@@ -41,10 +41,10 @@ def main(argv):
     copy_keras = utils.CopyKerasModel(MODEL_DIR, LOG_DIR)
 
     model.fit(train_dataset,
-              steps_per_epoch=10, #int(count/args.bs),
-              epochs=2,
+              steps_per_epoch=int(count/args.bs),
+              epochs=100,
               validation_data=test_dataset,
-              validation_steps=10, #int(count/args.bs),
+              validation_steps=int(count/args.bs),
               verbose=1,
               callbacks=[tensorboard, saving, reduce_lr, image_gen, copy_keras])
 

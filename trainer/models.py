@@ -37,7 +37,7 @@ def unet(activation=tf.nn.relu, padding='same', shape=(None, None, 1), dropout_r
         else:
             x = tf.keras.layers.Conv2DTranspose(filter_num, 2, 2, padding=padding)(x)
         x = tf.keras.layers.concatenate([x, downsample_path[idx]])
-        short_x = tf.keras.layers.Conv2D(bn_filters, (1,1), activation=activation, padding=padding)(x)
+        short_x = tf.keras.layers.Conv2D(filter_num, (1,1), activation=activation, padding=padding)(x)
         x = tf.keras.layers.Conv2D(filter_num, filter_shape, activation=activation, padding=padding)(x)
         x = tf.keras.layers.Dropout(dropout_rate)(x)
         x = tf.keras.layers.Conv2D(filter_num, filter_shape, activation=activation, padding=padding)(x)
