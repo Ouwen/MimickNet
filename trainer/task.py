@@ -79,6 +79,6 @@ if __name__ == '__main__':
     parser.add_argument('--l_mse', default=0.1, type=float, help='ssim mse')
 
     # Cloud ML Params
-    parser.add_argument('--job-dir', default='gs://duke-research-us/mimicknet/experiments', help='Job directory for Google Cloud ML')
+    parser.add_argument('--job-dir', default='gs://duke-research-us/mimicknet/experiments/test', help='Job directory for Google Cloud ML')
     
     main(sys.argv)
