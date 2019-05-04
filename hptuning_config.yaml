@@ -55,12 +55,12 @@ trainingInput:
       scaleType: UNIT_LOG_SCALE
     - parameterName: l1
       type: DOUBLE
-      minValue: 0
+      minValue: 0.00001
       maxValue: 0.1
       scaleType: UNIT_LOG_SCALE
     - parameterName: l2
       type: DOUBLE
-      minValue: 0
+      minValue: 0.00001
       maxValue: 0.1
       scaleType: UNIT_LOG_SCALE
     - parameterName: l_ssim
