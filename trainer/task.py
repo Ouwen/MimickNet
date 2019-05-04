@@ -17,8 +17,8 @@ def main(argv):
 
     mimick_dataset = utils.MimickDataset(height=args.in_h, width=args.in_w, log_compress=args.lg_c)
 
-    train_dataset, count = mimick_dataset.get_paired_ultrasound_dataset(csv='data/training-v1.csv', batch_size=args.bs)
-    test_dataset, count = mimick_dataset.get_paired_ultrasound_dataset(csv='data/testing-v1.csv', batch_size=args.bs)
+    train_dataset, count = mimick_dataset.get_paired_ultrasound_dataset(csv='gs://duke-research-us/mimicknet/data/training-v1.csv', batch_size=args.bs)
+    test_dataset, count = mimick_dataset.get_paired_ultrasound_dataset(csv='gs://duke-research-us/mimicknet/data/testing-v1.csv', batch_size=args.bs)
 
     model = models.unet(shape=(None, None, 1),
                         activation=activation, 
@@ -33,28 +33,28 @@ def main(argv):
                   loss=utils.combined_loss(l_ssim=args.l_ssim, l_mae=args.l_mae, l_mse=args.l_mse),
                   metrics=['mae', 'mse', utils.ssim, utils.psnr])
     
-    tensorboard = tf.keras.callbacks.TensorBoard(log_dir=LOG_DIR, write_graph=True)
+    tensorboard = tf.keras.callbacks.TensorBoard(log_dir=LOG_DIR, write_graph=True, update_freq='epoch')
     saving = tf.keras.callbacks.ModelCheckpoint(MODEL_DIR + '/model.{epoch:02d}-{val_loss:.10f}.hdf5', 
                                                 monitor='val_loss', verbose=1, period=1, save_best_only=True)
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, min_lr=1e-6, min_delta=0.00001)
     image_gen = utils.GenerateImages(model, LOG_DIR, log_compress=args.lg_c, interval=int(count/args.bs/4))
     copy_keras = utils.CopyKerasModel(MODEL_DIR, LOG_DIR)
-
+    terminate = tf.keras.callbacks.TerminateOnNaN()
     model.fit(train_dataset,
               steps_per_epoch=int(count/args.bs),
               epochs=100,
               validation_data=test_dataset,
               validation_steps=int(count/args.bs),
               verbose=1,
-              callbacks=[tensorboard, saving, reduce_lr, image_gen, copy_keras])
+              callbacks=[terminate, tensorboard, saving, reduce_lr, image_gen, copy_keras])
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     # Input parser
-    parser.add_argument('--bs',   default=  16, type=int, help='batch size')
-    parser.add_argument('--in_h', default=1024, type=int, help='image input size')
-    parser.add_argument('--in_w', default=  64, type=int, help='image input size')
+    parser.add_argument('--bs',   default=  32, type=int, help='batch size')
+    parser.add_argument('--in_h', default= 512, type=int, help='image input size')
+    parser.add_argument('--in_w', default= 64, type=int, help='image input size')
 
     # Input Data Params
     parser.add_argument('--lg_c',  default=True,  type=bool, help='Log compress the raw IQ data')

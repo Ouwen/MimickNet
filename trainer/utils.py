@@ -6,7 +6,7 @@ import os
 from tensorflow.python.lib.io import file_io
 
 class MimickDataset():
-    def __init__(self, height=1024, width=256, log_compress=True,
+    def __init__(self, height=800, width=256, log_compress=True,
                  image_dir=None, bucket_dir='gs://duke-research-us/mimicknet/data/duke-ultrasound-v1'):
         self.height = height
         self.width = width
@@ -69,10 +69,8 @@ class MimickDataset():
         return read_mat_op
 
     def get_dataset(self, csv):
-        my_path = os.path.abspath(os.path.dirname(__file__))
-        csv = os.path.join(my_path, csv)
-        
-        filelist = list(pd.read_csv(csv)['filename'])
+        filepath = tf.gfile.Open(csv, 'rb')
+        filelist = list(pd.read_csv(filepath)['filename'])
         count = len(filelist)
         dataset = tf.data.Dataset.from_tensor_slices(filelist)
         dataset = dataset.shuffle(count).repeat()
@@ -139,67 +137,71 @@ class GenerateImages(tf.keras.callbacks.Callback):
         self.mse_summarys = {}
         self.mae_summarys = {}
         self.psnr_summarys ={}
+        self.ssim_summarys ={}
         self.real_image_summarys = {}
         self.fake_image_summarys = {}
-
+        self.delta_image_summarys = {}
 
         # Load files of interest
         for name, filename in files:
             filepath = tf.gfile.Open('{}/{}'.format(bucket_dir, filename), 'rb')
-            if image_dir is not None:
-                filepath = '{}/{}'.format(image_dir, filename)
-                iq, dtce = mat2model(filepath, log_compress=log_compress)
-                self.files.append(name, iq, dtce)
-                self.graphs[name] = tf.Graph()
-                # Create graph of metrics for each image (really annoying tensorboard issue not taking tensor strings)
-                with self.graphs[name].as_default():
-                    self.real_placeholders[name] = tf.placeholder(tf.float32)
-                    self.fake_placeholder[name]  = tf.placeholder(tf.float32)
-
-                    mse = tf.math.reduce_mean(tf.math.square((self.real_placeholders[name] - self.fake_placeholders[name])))
-                    mae = tf.math.reduce_mean(tf.math.abs((self.real_placeholders[name] - self.fake_placeholders[name])))
-                    psnr = tf.image.psnr(self.real_placeholders[name], self.fake_placeholders[name], 1)
-                    ssim = tf.image.ssim(self.real_placeholders[name], self.fake_placeholders[name], 1)
-                    self.mse_summarys[name] = tf.summary.scalar('mse_{}'.format(name), mse)
-                    self.mae_summarys[name] = tf.summary.scalar('mae_{}'.format(name), mae)
-                    self.ssim_summarys[name] = tf.summary.scalar('ssim_{}'.format(name), ssim[0])
-                    self.psnr_summarys[name] = tf.summary.scalar('psnr_{}'.format(name), psnr[0])
-                    self.real_image_summarys[name] = tf.summary.image('real_{}'.format(name), self.real_placeholders[name])
-                    self.fake_image_summarys[name] = tf.summary.image('fake_{}'.format(name), self.fake_placeholders[name])
+            if image_dir is not None: filepath = '{}/{}'.format(image_dir, filename)
                 
-                sessions[name] = tf.Session(graph=self.graphs[name])
+            iq, dtce, shape = mat2model(filepath, log_compress=log_compress)
+            print(shape)
+            
+            self.files.append((name, iq, dtce))
+            self.graphs[name] = tf.Graph()
+            # Create graph of metrics for each image (really annoying tensorboard issue not taking tensor strings)
+            with self.graphs[name].as_default():
+                self.real_placeholders[name] = tf.placeholder(tf.float32)
+                self.fake_placeholders[name]  = tf.placeholder(tf.float32)
+
+                mse = tf.math.reduce_mean(tf.math.square((self.real_placeholders[name] - self.fake_placeholders[name])))
+                mae = tf.math.reduce_mean(tf.math.abs((self.real_placeholders[name] - self.fake_placeholders[name])))
+                psnr = tf.image.psnr(self.real_placeholders[name], self.fake_placeholders[name], 1)
+                ssim = tf.image.ssim(self.real_placeholders[name], self.fake_placeholders[name], 1)
+                self.mse_summarys[name] = tf.summary.scalar(name, mse, family='mse_val_image')
+                self.mae_summarys[name] = tf.summary.scalar(name, mae, family='mae_val_image')
+                self.ssim_summarys[name] = tf.summary.scalar(name, ssim[0], family='ssim_val_image')
+                self.psnr_summarys[name] = tf.summary.scalar(name, psnr[0], family='psnr_val_image')
+                self.real_image_summarys[name] = tf.summary.image('real', self.real_placeholders[name], family=name)
+                self.fake_image_summarys[name] = tf.summary.image('fake', self.fake_placeholders[name],  family=name)
+                self.delta_image_summarys[name] = tf.summary.image('delta', tf.abs(self.real_placeholders[name]-self.fake_placeholders[name]),  family=name)
+
+            self.sessions[name] = tf.Session(graph=self.graphs[name])
 
 
     def generate_images(self):
         self.step_count += 1
 
         # Out images on regular interval, but every 5 steps for early iterations.
-        if self.step_count % self.interval == 0 or (self.step_count < 100 and self.step_count % 5 == 0):        
+        if self.step_count % self.interval == 0 or (self.step_count < 100 and self.step_count % 5 == 0):
             # Run the forward model on the images, and write to tensorboard.
             for name, iq, dtce in self.files:
-                sess = sessions[name]
-
-                filepath = '{}/{}'.format(self.image_dir, name)
+                sess = self.sessions[name]
                 output = self.forward.predict(iq)
                 
-                mse, mae, psnr, ssim, real, fake = sess.run([self.mse_summarys[name], 
-                                                             self.mae_summarys[name], 
-                                                             self.psnr_summarys[name], 
-                                                             self.ssim_summarys[name],
-                                                             self.real_image_summarys[name],
-                                                             self.fake_image_summarys[name]
-                                                             ], 
-                                                             feed_dict = {
-                                                                self.real_placeholders[name]: dtce,
-                                                                self.fake_placeholders[name]: output,
-                                                             })
-
+                mse, mae, psnr, ssim, real, fake, delta = sess.run([self.mse_summarys[name], 
+                                                                    self.mae_summarys[name], 
+                                                                    self.psnr_summarys[name], 
+                                                                    self.ssim_summarys[name],
+                                                                    self.real_image_summarys[name],
+                                                                    self.fake_image_summarys[name],
+                                                                    self.delta_image_summarys[name],
+                                                                    ], 
+                                                                    feed_dict = {
+                                                                       self.real_placeholders[name]: dtce,
+                                                                       self.fake_placeholders[name]: output,
+                                                                    })
+                
                 self.writer.add_summary(mse, global_step = self.step_count)
                 self.writer.add_summary(mae, global_step = self.step_count)
                 self.writer.add_summary(psnr, global_step = self.step_count)
                 self.writer.add_summary(ssim, global_step = self.step_count)
                 self.writer.add_summary(real, global_step = self.step_count)
                 self.writer.add_summary(fake, global_step = self.step_count)
+                self.writer.add_summary(delta, global_step = self.step_count)
                 self.writer.flush()
                 
     def on_batch_begin(self, batch, logs={}):
