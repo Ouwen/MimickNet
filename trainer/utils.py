@@ -170,8 +170,8 @@ class GenerateImages(tf.keras.callbacks.Callback):
     def generate_images(self):
         self.step_count += 1
 
-        # Out images on regular interval, but every 5 steps for early iterations.
-        if self.step_count % self.interval == 0 or (self.step_count < 100 and self.step_count % 5 == 0):
+        # Out images on regular interval
+        if self.step_count % self.interval == 0:
             # Run the forward model on the images, and write to tensorboard.
             for name, iq, dtce in self.files:
                 sess = self.sessions[name]

@@ -1,28 +1,34 @@
 import tensorflow as tf
 import numpy as np
 
+
 def unet(activation=tf.nn.relu, padding='same', shape=(None, None, 1), dropout_rate=0,
-         filters=[16, 16, 16, 16], bn_filters=16, filter_shape=(3,3), residual=False, pixel_shuffler=False):
+         filters=[16, 16, 16, 16], bn_filters=16, filter_shape=(3,3), residual=False, pixel_shuffler=False, 
+         l1_regularizer=0, l2_regularizer=0):
+    
+    def unetConv(filters, filter_shape, activation=activation, padding=padding, kernel_regularizer=tf.keras.regularizers.l1_l2(l1=l1_regularizer, l2=l2_regularizer)):
+        return tf.keras.layers.Conv2D(filters, filter_shape, activation=activation, padding=padding, kernel_regularizer=kernel_regularizer)
+    
     downsample_path = []
     inputs = tf.keras.layers.Input(shape=shape)
-    x = inputs
+    x = unetConv(filters[0], filter_shape)(inputs)
     
     # Downsampling path
     for idx, filter_num in enumerate(filters):
-        short_x = tf.keras.layers.Conv2D(filter_num, (1,1), activation=activation, padding=padding)(x)
-        x = tf.keras.layers.Conv2D(filter_num, filter_shape, activation=activation, padding=padding)(x)
+        short_x = unetConv(filter_num, (1,1))(x)
+        x = unetConv(filter_num, filter_shape)(x)
         x = tf.keras.layers.Dropout(dropout_rate)(x)
-        x = tf.keras.layers.Conv2D(filter_num, filter_shape, activation=activation, padding=padding)(x)
+        x = unetConv(filter_num, filter_shape)(x)
         x = tf.keras.layers.Dropout(dropout_rate)(x)
         x = tf.keras.layers.Add()([x, short_x]) if residual else x
         downsample_path.append(x)
         x = tf.keras.layers.MaxPool2D(padding=padding)(x)
     
     # Bottleneck
-    short_x = tf.keras.layers.Conv2D(bn_filters, (1,1), activation=activation, padding=padding)(x)
-    x = tf.keras.layers.Conv2D(bn_filters, filter_shape, activation=activation, padding=padding)(x)
+    short_x = unetConv(bn_filters, (1,1))(x)
+    x = unetConv(bn_filters, filter_shape)(x)
     x = tf.keras.layers.Dropout(dropout_rate)(x)
-    x = tf.keras.layers.Conv2D(bn_filters, filter_shape, activation=activation, padding=padding)(x)
+    x = unetConv(bn_filters, filter_shape)(x)
     x = tf.keras.layers.Dropout(dropout_rate)(x)
     x = tf.keras.layers.Add()([x, short_x]) if residual else x
     
@@ -37,10 +43,10 @@ def unet(activation=tf.nn.relu, padding='same', shape=(None, None, 1), dropout_r
         else:
             x = tf.keras.layers.Conv2DTranspose(filter_num, 2, 2, padding=padding)(x)
         x = tf.keras.layers.concatenate([x, downsample_path[idx]])
-        short_x = tf.keras.layers.Conv2D(filter_num, (1,1), activation=activation, padding=padding)(x)
-        x = tf.keras.layers.Conv2D(filter_num, filter_shape, activation=activation, padding=padding)(x)
+        short_x = unetConv(filter_num, (1,1))(x)
+        x = unetConv(filter_num, filter_shape)(x)
         x = tf.keras.layers.Dropout(dropout_rate)(x)
-        x = tf.keras.layers.Conv2D(filter_num, filter_shape, activation=activation, padding=padding)(x)
+        x = unetConv(filter_num, filter_shape)(x)
         x = tf.keras.layers.Dropout(dropout_rate)(x)
         x = tf.keras.layers.Add()([x, short_x]) if residual else x
 

@@ -5,7 +5,7 @@ trainingInput:
     goal: MAXIMIZE
     hyperparameterMetricTag: epoch_val_ssim
     maxTrials: 1000
-    maxParallelTrials: 30
+    maxParallelTrials: 10
     enableTrialEarlyStopping: TRUE
     params:
     - parameterName: lg_c
@@ -31,48 +31,38 @@ trainingInput:
     - parameterName: f_h
       type: INTEGER
       minValue: 3
-      maxValue: 9
+      maxValue: 7
       scaleType: UNIT_LINEAR_SCALE
     - parameterName: f_w
       type: INTEGER
       minValue: 3
-      maxValue: 9
+      maxValue: 7
       scaleType: UNIT_LINEAR_SCALE
     - parameterName: f1
       type: INTEGER
-      minValue: 1
-      maxValue: 16
-      scaleType: UNIT_LINEAR_SCALE
-    - parameterName: f2
-      type: INTEGER
-      minValue: 1
-      maxValue: 32
-      scaleType: UNIT_LINEAR_SCALE
-    - parameterName: f3
-      type: INTEGER
-      minValue: 1
-      maxValue: 64
-      scaleType: UNIT_LINEAR_SCALE
-    - parameterName: f4
-      type: INTEGER
-      minValue: 1
-      maxValue: 128
-      scaleType: UNIT_LINEAR_SCALE
-    - parameterName: fbn
-      type: INTEGER
-      minValue: 1
-      maxValue: 256
+      minValue: 2
+      maxValue: 8
       scaleType: UNIT_LINEAR_SCALE
     - parameterName: dr
       type: DOUBLE
       minValue: 0
-      maxValue: 1
+      maxValue: 0.5
       scaleType: UNIT_LINEAR_SCALE
     - parameterName: lr
       type: DOUBLE
       minValue: 0.00001
       maxValue: 0.01
-      scaleType: UNIT_REVERSE_LOG_SCALE
+      scaleType: UNIT_LOG_SCALE
+    - parameterName: l1
+      type: DOUBLE
+      minValue: 0
+      maxValue: 0.1
+      scaleType: UNIT_LOG_SCALE
+    - parameterName: l2
+      type: DOUBLE
+      minValue: 0
+      maxValue: 0.1
+      scaleType: UNIT_LOG_SCALE
     - parameterName: l_ssim
       type: DOUBLE
       minValue: 0
