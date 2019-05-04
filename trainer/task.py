@@ -37,7 +37,17 @@ def main(argv):
     saving = tf.keras.callbacks.ModelCheckpoint(MODEL_DIR + '/model.{epoch:02d}-{val_loss:.10f}.hdf5', 
                                                 monitor='val_loss', verbose=1, period=1, save_best_only=True)
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=5, min_lr=1e-6, min_delta=0.00001)
-    image_gen = utils.GenerateImages(model, LOG_DIR, log_compress=args.lg_c, interval=int(count/args.bs/4))
+    image_gen = utils.GenerateImages(model, LOG_DIR, log_compress=args.lg_c, interval=int(count/args.bs/4),
+                                     files=[
+                                        ('fetal', 'rfd_fetal_ch.uri_SpV5192_VpF1362_FpA6_20121101150345_1.mat'),
+                                        ('fetal2', 'rfd_fetal_ch.uri_SpV6232_VpF908_FpA9_20121031150931_1.mat'),                        
+                                        ('liver', 'rfd_liver_highmi.uri_SpV5192_VpF512_FpA7_20161216093626_1.mat'),
+                                        ('liver2', 'rfd_liver_highmi.uri_SpV5192_VpF512_FpA7_20161216093626_1.mat'),
+                                        ('phantom', 'verasonics.20180206194115_channelData_part11_0.mat'),
+                                        ('vera_bad', 'verasonics.20170830145820_channelData_part9_1.mat'),
+                                        ('sc_bad', 'sc_fetal_ch.20160909160351_sum_10.mat'),
+                                        ('rfd_bad', 'rfd_liver_highmi.uri_SpV10388_VpF168_FpA8_20160901073342_2.mat')
+                                     ])
     copy_keras = utils.CopyKerasModel(MODEL_DIR, LOG_DIR)
     terminate = tf.keras.callbacks.TerminateOnNaN()
     model.fit(train_dataset,

@@ -116,13 +116,11 @@ class CopyKerasModel(tf.keras.callbacks.Callback):
     
     def on_epoch_end(self, epoch, logs):
         self.upload_files()
-    
+
 class GenerateImages(tf.keras.callbacks.Callback):
     def __init__(self, forward, log_dir, interval=1000, log_compress=True,
                  image_dir=None, bucket_dir='gs://duke-research-us/mimicknet/data/duke-ultrasound-v1', 
-                 files=[('fetal', 'rfd_fetal_ch.uri_SpV5192_VpF1362_FpA6_20121101150345_1.mat'),
-                        ('liver', 'rfd_liver_highmi.uri_SpV5192_VpF512_FpA7_20161216093626_1.mat'),
-                        ('phantom', 'verasonics.20180206194115_channelData_part11_0.mat')]):
+                 files=[]):
         super()
         self.step_count = 0
         self.interval = interval
@@ -141,14 +139,13 @@ class GenerateImages(tf.keras.callbacks.Callback):
         self.real_image_summarys = {}
         self.fake_image_summarys = {}
         self.delta_image_summarys = {}
-
+        
         # Load files of interest
         for name, filename in files:
             filepath = tf.gfile.Open('{}/{}'.format(bucket_dir, filename), 'rb')
             if image_dir is not None: filepath = '{}/{}'.format(image_dir, filename)
                 
             iq, dtce, shape = mat2model(filepath, log_compress=log_compress)
-            print(shape)
             
             self.files.append((name, iq, dtce))
             self.graphs[name] = tf.Graph()
@@ -168,9 +165,7 @@ class GenerateImages(tf.keras.callbacks.Callback):
                 self.real_image_summarys[name] = tf.summary.image('real', self.real_placeholders[name], family=name)
                 self.fake_image_summarys[name] = tf.summary.image('fake', self.fake_placeholders[name],  family=name)
                 self.delta_image_summarys[name] = tf.summary.image('delta', tf.abs(self.real_placeholders[name]-self.fake_placeholders[name]),  family=name)
-
             self.sessions[name] = tf.Session(graph=self.graphs[name])
-
 
     def generate_images(self):
         self.step_count += 1
