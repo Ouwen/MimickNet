@@ -40,28 +40,28 @@ trainingInput:
       scaleType: UNIT_LINEAR_SCALE
     - parameterName: f1
       type: INTEGER
-      minValue: 8
-      maxValue: 64
+      minValue: 1
+      maxValue: 16
       scaleType: UNIT_LINEAR_SCALE
     - parameterName: f2
       type: INTEGER
-      minValue: 8
-      maxValue: 128
+      minValue: 1
+      maxValue: 32
       scaleType: UNIT_LINEAR_SCALE
     - parameterName: f3
       type: INTEGER
-      minValue: 8
-      maxValue: 256
+      minValue: 1
+      maxValue: 64
       scaleType: UNIT_LINEAR_SCALE
     - parameterName: f4
       type: INTEGER
-      minValue: 8
-      maxValue: 512
+      minValue: 1
+      maxValue: 128
       scaleType: UNIT_LINEAR_SCALE
     - parameterName: fbn
       type: INTEGER
-      minValue: 8
-      maxValue: 1024
+      minValue: 1
+      maxValue: 256
       scaleType: UNIT_LINEAR_SCALE
     - parameterName: dr
       type: DOUBLE

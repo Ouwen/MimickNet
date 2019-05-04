@@ -12,8 +12,8 @@ def main(argv):
     activation = tf.nn.selu if args.actv == 'selu' else tf.nn.relu
 
     filter_shape = (args.f_h, args.f_w)
-    filters = [args.f1, args.f2, args.f3, args.f4]
-    filter_bottleneck = args.fbn
+    filters = [args.f1*4, args.f2*4, args.f3*4, args.f4*4]
+    filter_bottleneck = args.fbn*4
 
     mimick_dataset = utils.MimickDataset(height=args.in_h, width=args.in_w, log_compress=args.lg_c)
 
