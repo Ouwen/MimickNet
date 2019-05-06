@@ -6,8 +6,13 @@ trainingInput:
     hyperparameterMetricTag: epoch_val_ssim
     maxTrials: 1000
     maxParallelTrials: 10
+    maxFailedTrials: 100
     enableTrialEarlyStopping: TRUE
     params:
+    - parameterName: m
+      type: DISCRETE
+      discreteValues:
+      - 0
     - parameterName: lg_c
       type: DISCRETE
       discreteValues:
@@ -28,21 +33,7 @@ trainingInput:
       categoricalValues:
       - relu
       - selu
-    - parameterName: f_h
-      type: INTEGER
-      minValue: 3
-      maxValue: 7
-      scaleType: UNIT_LINEAR_SCALE
-    - parameterName: f_w
-      type: INTEGER
-      minValue: 3
-      maxValue: 7
-      scaleType: UNIT_LINEAR_SCALE
-    - parameterName: f1
-      type: INTEGER
-      minValue: 2
-      maxValue: 8
-      scaleType: UNIT_LINEAR_SCALE
+      - lrelu
     - parameterName: dr
       type: DOUBLE
       minValue: 0
@@ -50,8 +41,8 @@ trainingInput:
       scaleType: UNIT_LINEAR_SCALE
     - parameterName: lr
       type: DOUBLE
-      minValue: 0.00001
-      maxValue: 0.01
+      minValue: 0.0002
+      maxValue: 0.02
       scaleType: UNIT_LOG_SCALE
     - parameterName: l1
       type: DOUBLE
@@ -63,18 +54,8 @@ trainingInput:
       minValue: 0.00001
       maxValue: 0.1
       scaleType: UNIT_LOG_SCALE
-    - parameterName: l_ssim
-      type: DOUBLE
-      minValue: 0
-      maxValue: 1
-      scaleType: UNIT_LINEAR_SCALE
-    - parameterName: l_mae
-      type: DOUBLE
-      minValue: 0
-      maxValue: 1
-      scaleType: UNIT_LINEAR_SCALE
-    - parameterName: l_mse
-      type: DOUBLE
-      minValue: 0
-      maxValue: 1
-      scaleType: UNIT_LINEAR_SCALE
+    - parameterName: cycle_lr
+      type: DISCRETE
+      discreteValues:
+      - 0
+      - 1

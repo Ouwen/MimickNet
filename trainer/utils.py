@@ -6,7 +6,7 @@ import os
 from tensorflow.python.lib.io import file_io
 
 class MimickDataset():
-    def __init__(self, height=800, width=256, log_compress=True,
+    def __init__(self, height=512, width=64, log_compress=True,
                  image_dir=None, bucket_dir='gs://duke-research-us/mimicknet/data/duke-ultrasound-v1'):
         self.height = height
         self.width = width

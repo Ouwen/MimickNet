@@ -1,59 +1,116 @@
 import tensorflow as tf
-import numpy as np
 
-
-def unet(activation=tf.nn.relu, padding='same', shape=(None, None, 1), dropout_rate=0,
-         filters=[16, 16, 16, 16], bn_filters=16, filter_shape=(3,3), residual=False, pixel_shuffler=False, 
-         l1_regularizer=0, l2_regularizer=0):
+class ModelBase:
+    def __init__(self, Activation=tf.keras.layers.ReLU, 
+                 padding='same', 
+                 shape=(None, None, 1),
+                 filters=[16, 16, 16, 16, 16], filter_shape=(3,3), 
+                 pixel_shuffler=False,
+                 dropout_rate=0, l1_regularizer=0, l2_regularizer=0):
     
-    def unetConv(filters, filter_shape, activation=activation, padding=padding, kernel_regularizer=tf.keras.regularizers.l1_l2(l1=l1_regularizer, l2=l2_regularizer)):
-        return tf.keras.layers.Conv2D(filters, filter_shape, activation=activation, padding=padding, kernel_regularizer=kernel_regularizer)
+        self.Activation         = Activation
+        self.padding            ='same'
+        self.filter_shape       = filter_shape
+        self.shape              = shape
+        self.filters            = filters
+        self.pixel_shuffler     = pixel_shuffler
+        self.dropout_rate       = dropout_rate
+        self.kernel_regularizer = tf.keras.regularizers.l1_l2(l1=l1_regularizer, l2=l2_regularizer) if l1_regularizer != 0 and l2_regularizer !=0 else None    
     
-    downsample_path = []
-    inputs = tf.keras.layers.Input(shape=shape)
-    x = unetConv(filters[0], filter_shape)(inputs)
+    def Conv2D(self, filters):
+        return tf.keras.layers.Conv2D(filters, self.filter_shape, padding=self.padding, kernel_regularizer=self.kernel_regularizer)
     
-    # Downsampling path
-    for idx, filter_num in enumerate(filters):
-        short_x = unetConv(filter_num, (1,1))(x)
-        x = unetConv(filter_num, filter_shape)(x)
-        x = tf.keras.layers.Dropout(dropout_rate)(x)
-        x = unetConv(filter_num, filter_shape)(x)
-        x = tf.keras.layers.Dropout(dropout_rate)(x)
-        x = tf.keras.layers.Add()([x, short_x]) if residual else x
-        downsample_path.append(x)
-        x = tf.keras.layers.MaxPool2D(padding=padding)(x)
-    
-    # Bottleneck
-    short_x = unetConv(bn_filters, (1,1))(x)
-    x = unetConv(bn_filters, filter_shape)(x)
-    x = tf.keras.layers.Dropout(dropout_rate)(x)
-    x = unetConv(bn_filters, filter_shape)(x)
-    x = tf.keras.layers.Dropout(dropout_rate)(x)
-    x = tf.keras.layers.Add()([x, short_x]) if residual else x
-    
-    downsample_path.reverse()
-    filters = list(filters)
-    filters.reverse()
-    
-    # Upsampling path
-    for idx, filter_num in enumerate(filters):
-        if pixel_shuffler:
-            x = tf.keras.layers.Lambda(lambda x: tf.depth_to_space(x, 2))(x)
+    def Upsample(self, filters, ratio=2):
+        if self.pixel_shuffler:
+            return tf.keras.Sequential([tf.keras.layers.Lambda(lambda x: tf.depth_to_space(x, ratio)),
+                                        self.Conv2D(filters)])
         else:
-            x = tf.keras.layers.Conv2DTranspose(filter_num, 2, 2, padding=padding)(x)
-        x = tf.keras.layers.concatenate([x, downsample_path[idx]])
-        short_x = unetConv(filter_num, (1,1))(x)
-        x = unetConv(filter_num, filter_shape)(x)
-        x = tf.keras.layers.Dropout(dropout_rate)(x)
-        x = unetConv(filter_num, filter_shape)(x)
-        x = tf.keras.layers.Dropout(dropout_rate)(x)
-        x = tf.keras.layers.Add()([x, short_x]) if residual else x
-
-    outputs = tf.keras.layers.Conv2D(1, 1)(x)
+            return tf.keras.layers.Conv2DTranspose(filters, ratio, ratio, padding=self.padding)
+    def Dropout(self):
+        def _dropout(x):
+            return tf.keras.layers.AlphaDropout(self.dropout_rate)(x) if self.dropout_rate > 0 else x
+        return _dropout
     
-    return tf.keras.Model(inputs, outputs)
+class UnetModel(ModelBase):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+            
+    def __call__(self):
+        downsample_path = []
+        inputs = tf.keras.layers.Input(shape=self.shape)
+        x = inputs
+        
+        for idx, filter_num in enumerate(self.filters):
+            x = self.Conv2D(filter_num)(x)
+            x = self.Activation(x)
+            x = self.Dropout()(x)
+            x = self.Conv2D(filter_num)(x)
+            x = self.Activation(x)
+            x = self.Dropout()(x)
+            if idx != len(self.filters)-1:
+                downsample_path.append(x)
+                x = tf.keras.layers.MaxPool2D(padding=self.padding)(x)
 
+        downsample_path.reverse()
+        reverse_filters = list(self.filters[:-1])
+        reverse_filters.reverse()
+
+        # Upsampling path
+        for idx, filter_num in enumerate(reverse_filters):
+            x = self.Upsample(filter_num)(x)
+            x = tf.keras.layers.concatenate([x, downsample_path[idx]])
+            x = self.Conv2D(filter_num)(x)
+            x = self.Activation(x)
+            x = self.Dropout()(x)
+            x = self.Conv2D(filter_num)(x)
+            x = self.Activation(x)
+            x = self.Dropout()(x)
+
+        x = tf.keras.layers.Conv2D(1, 1)(x)
+
+        return tf.keras.Model(inputs, x)
+
+class ResUnetModel(ModelBase):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+    
+    def resblock(self, x, num_filters, first=False):
+        shortcut = tf.keras.layers.Conv2D(num_filters, kernel_size=(1, 1))(x)
+        shortcut = tf.keras.layers.BatchNormalization()(shortcut)
+        if not first:
+            x = tf.keras.layers.BatchNormalization()(x)
+            x = self.Activation(x)
+        res_path = self.Conv2D(num_filters)(x)
+        res_path = tf.keras.layers.BatchNormalization()(res_path)
+        res_path = self.Activation(res_path)
+        res_path = self.Conv2D(num_filters)(res_path)
+        return tf.keras.layers.Add()([shortcut, res_path])
+    
+    def __call__(self):
+        downsample_path = []
+        inputs = tf.keras.layers.Input(shape=self.shape)
+        x = inputs
+
+        for idx, filter_num in enumerate(self.filters):
+            x = self.resblock(x, filter_num, idx==0)
+            if idx != len(self.filters)-1:
+                downsample_path.append(x)
+                x = tf.keras.layers.MaxPool2D(padding=self.padding)(x)
+
+        downsample_path.reverse()
+        reverse_filters = list(self.filters[:-1])
+        reverse_filters.reverse()
+
+        # Upsampling path
+        for idx, filter_num in enumerate(reverse_filters):
+            x = self.Upsample(filter_num)(x)
+            x = tf.keras.layers.concatenate([x, downsample_path[idx]])        
+            x = self.resblock(x, filter_num)
+        x = tf.keras.layers.Conv2D(1, 1)(x)
+
+        return tf.keras.Model(inputs, x)
+
+    
 def patchgan(activation=tf.nn.relu, padding='same', shape=(None, None, 1), 
              filters=[16, 32, 64, 128, 256], filter_shape=(3,3)):
     inputs = tf.keras.Input(shape=shape)
@@ -66,76 +123,57 @@ def patchgan(activation=tf.nn.relu, padding='same', shape=(None, None, 1),
 
     return tf.keras.Model(inputs, validity)
 
-class CycleGAN():
-    def __init__(self, activation=tf.nn.relu, padding='same', img_shape=(None, None, 1), 
-                 g_AB=None, g_BA=None, d_B=None, d_A=None, g_loss = [
+class CycleGAN(ModelBase):   
+    def __init__(self, g_AB=None, g_BA=None, d_B=None, d_A=None, 
+                 d_loss='mse',
+                 g_loss = [
                      'mse', 'mse', 
                      'mae', 'mae', 
                      'mae', 'mae'
-                 ],
-                 generator_params={
-                    'filters': [32, 64, 128, 256],
-                    'bn_filters': 512,
+                 ], loss_weights = [
+                     1,  1, 
+                    10, 10, 
+                     1,  1
+                 ], generator_params={
+                    'filters': [32, 64, 128, 256, 512],
                     'filter_shape':(3,3)
                  }, discriminator_params = {
                     'filters': [16, 32, 64, 128, 256],
                     'filter_shape': (3,3)
-                 }
-                ):
-        self.img_shape = img_shape
-        self.activation = activation
-        self.d_activation = activation
-        self.padding = padding
+                 }, **kwargs):
+        super().__init__(**kwargs)
         
+        self.d_loss = d_loss
         self.g_loss = g_loss
-        self.lambda_cycle = 10.0                    # Cycle-consistency loss
-        self.lambda_id = 0.1 * self.lambda_cycle    # Identity loss
+        self.loss_weight = loss_weight
         
-        self.optimizer = tf.keras.optimizers.Adam(0.00002, 0.5)
-
         self.generator_params = generator_params
-        
         self.discriminator_params = discriminator_params
         
         # Build the discriminator blocks
-        if d_A is None:
-            self.d_A = self.build_discriminator()
-        else:
-            self.d_A = d_A
-            
-        if d_B is None:
-            self.d_B = self.build_discriminator()
-        else:
-            self.d_B = d_B     
-        self.d_A.compile(loss='mse',
-            optimizer=self.optimizer,
-            metrics=['accuracy'])
-        self.d_B.compile(loss='mse',
-            optimizer=self.optimizer,
-            metrics=['accuracy'])
+        self.d_A = self.build_discriminator() if d_A is None else d_A
+        self.d_B = self.build_discriminator() if d_B is None else d_B
         
-        # Build the generator-discriminator block
+        # Build the generator blocks
+        self.g_AB = self.build_generator() if g_AB is None else g_AB
+        self.g_BA = self.build_generator() if g_BA is None else g_BA
+        
+    def compile(self, optimizer=tf.keras.optimizers.Adam(0.00002, 0.5), metrics=[], log_dir=None):
+        self.optimizer = optimizer
+        self.d_A.compile(loss=self.d_loss, optimizer=self.optimizer, metrics=['accuracy'])
+        self.d_B.compile(loss=self.d_loss, optimizer=self.optimizer, metrics=['accuracy'])
+        
+        # Build the generator block
         self.d_A.trainable = False
         self.d_B.trainable = False
         
-        if g_AB is None:
-            self.g_AB = self.build_generator()
-        else:
-            self.g_AB = g_AB
-        
-        if g_BA is None:
-            self.g_BA = self.build_generator()
-            self.g_BA = self.build_generator()
-        else:
-            self.g_BA = g_BA
-
-        img_A = tf.keras.layers.Input(shape=self.img_shape)   # Input images from both domains
-        img_B = tf.keras.layers.Input(shape=self.img_shape)
-        fake_B = self.g_AB(img_A)                             # Translate images to the other domain
+        img_A = tf.keras.layers.Input(shape=self.shape)   # Input images from both domains
+        img_B = tf.keras.layers.Input(shape=self.shape)
+        fake_B = self.g_AB(img_A)                         # Translate images to the other domain
         fake_A = self.g_BA(img_B)
-        reconstr_A = self.g_BA(fake_B)                        # Translate images back to original domain
+        reconstr_A = self.g_BA(fake_B)                    # Translate images back to original domain
         reconstr_B = self.g_AB(fake_A)
-        img_A_id = self.g_BA(img_A)                           # Identity mapping of images
+        img_A_id = self.g_BA(img_A)                       # Identity mapping of images
         img_B_id = self.g_AB(img_B)
 
         # Discriminators determines validity of translated images
@@ -143,16 +181,22 @@ class CycleGAN():
         valid_B = self.d_B(fake_B)
         
         # Combined model trains generators to fool discriminators
-        self.combined = tf.keras.Model(inputs= [img_A, img_B],
-                                       outputs=[valid_A, valid_B, 
-                                                reconstr_A, reconstr_B, 
-                                                img_A_id, img_B_id])
+        self.combined = tf.keras.Model(inputs  = [img_A, img_B],
+                                       outputs = [valid_A, valid_B, 
+                                                  reconstr_A, reconstr_B, 
+                                                  img_A_id, img_B_id])
         self.combined.compile(loss=self.g_loss,
-                              loss_weights=[1, 1, 
-                                            self.lambda_cycle, self.lambda_cycle, 
-                                            self.lambda_id, self.lambda_id],
+                              loss_weights=self.loss_weights,
                               optimizer=self.optimizer)
-    
+        
+        self.metrics_graph = tf.Graph()
+        with self.metrics_graph.as_default():
+            A_batch_placeholder = tf.placeholder(tf.float32)
+            B_batch_placeholder = tf.placeholder(tf.float32)
+            fake_A_placeholder = tf.placeholder(tf.float32)
+            fake_B_placeholder = tf.placeholder(tf.float32)
+            self.output_metrics = [metric(A_batch_placeholder, fake_A_placeholder) for metric in metrics]
+
     def count_params(self):
         return self.g_AB.count_params()
         
@@ -169,9 +213,9 @@ class CycleGAN():
                         filters=self.discriminator_params['filters'],
                         filter_shape=self.discriminator_params['filter_shape'])
     
-    def fit(self, dataset_a, dataset_b, batch_size=8,
-            steps_per_epoch=10, epochs=3, 
-            validation_data=None, validation_steps=10, callbacks=[]):
+    def fit(self, dataset_a, dataset_b, batch_size=8, steps_per_epoch=10, epochs=3, validation_data=None, validation_steps=10, 
+            callbacks=[]):
+        
         if not hasattr(self, 'sess'):
             self.dataset_a_next = dataset_a.make_one_shot_iterator().get_next()
             self.dataset_b_next = dataset_b.make_one_shot_iterator().get_next()
@@ -183,19 +227,22 @@ class CycleGAN():
                 'metrics_backward':[]
             }
             self.sess = tf.Session()
-            
+        
+        for callback in callbacks: callback.on_train_begin(logs=self.log)
         for epoch in range(epochs):
-            for callback in callbacks: 
-                if 'on_epoch_begin' in dir(callback): callback.on_epoch_begin(epoch, logs=self.log)
+            for callback in callbacks: callback.on_epoch_begin(epoch, logs=self.log)
             for step in range(steps_per_epoch):
-                for callback in callbacks: 
-                    if 'on_batch_begin' in dir(callback): callback.on_batch_begin(step, logs=self.log)
-                   
+                for callback in callbacks: callback.on_batch_begin(step, logs=self.log)
+                
                 a_batch = self.sess.run(self.dataset_a_next)
                 b_batch = self.sess.run(self.dataset_b_next)
-                self.patch_gan_size = (a_batch.shape[0], a_batch.shape[1]//(2**5), a_batch.shape[2]//(2**5), a_batch.shape[3])
+                
+                self.patch_gan_size = (a_batch.shape[0], 
+                                       a_batch.shape[1]//(2**len(self.discriminator_params['filters'])), 
+                                       a_batch.shape[2]//(2**len(self.discriminator_params['filters'])), 
+                                       a_batch.shape[3])
                 self.valid = np.ones(self.patch_gan_size)
-                self.fake = np.zeros(self.patch_gan_size)                
+                self.fake = np.zeros(self.patch_gan_size)
                 
                 # Translate images to opposite domain
                 fake_B = self.g_AB.predict(a_batch)
@@ -222,12 +269,13 @@ class CycleGAN():
                     'recon_loss': np.mean(g_loss[3:5]),
                     'id_loss': np.mean(g_loss[5:6])
                 })
-                for callback in callbacks: 
-                    if 'on_batch_end' in dir(callback): callback.on_batch_end(step, logs=self.log)
-            for callback in callbacks: 
-                if 'on_epoch_end' in dir(callback): callback.on_epoch_end(epoch, logs=self.log)
+                for callback in callbacks: callback.on_batch_end(step, logs=self.log)
+            for callback in callbacks: callback.on_epoch_end(epoch, logs=self.log)
 
             print('Epoch {}/{}'.format(epoch+1, epochs))
+            
+            sess_val = tf.Session(graph=g1)
+            
             
             # Create Metrics Graph
             g1 = tf.Graph()
