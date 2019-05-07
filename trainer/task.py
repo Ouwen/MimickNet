@@ -20,14 +20,16 @@ def main(argv):
     else:
         raise Exception('activation must be relu, prelu, or selu')
     
+    # Set filter size and shape
     filter_shape = (args.f_h, args.f_w)
     filters = [args.f1*4, args.f2*4, args.f3*4, args.f4*4, args.fbn*4]
     
+    # Load Data
     mimick_dataset = utils.MimickDataset(height=args.in_h, width=args.in_w, log_compress=args.lg_c)
     train_dataset, count = mimick_dataset.get_paired_ultrasound_dataset(csv='gs://duke-research-us/mimicknet/data/training-v1.csv', batch_size=args.bs)
     test_dataset, count = mimick_dataset.get_paired_ultrasound_dataset(csv='gs://duke-research-us/mimicknet/data/testing-v1.csv', batch_size=args.bs)
     
-    # Select Model
+    # Select and Compile Model
     if args.res:
         ModelClass = models.ResUnetModel
     else:
@@ -45,7 +47,8 @@ def main(argv):
     model.compile(optimizer=tf.keras.optimizers.Nadam(lr=args.lr),
                   loss=utils.combined_loss(l_ssim=args.l_ssim, l_mae=args.l_mae, l_mse=args.l_mse),
                   metrics=['mae', 'mse', utils.ssim, utils.psnr])
-       
+    
+    # Generate Callbacks
     tensorboard = tf.keras.callbacks.TensorBoard(log_dir=LOG_DIR, write_graph=True, update_freq='epoch')
     saving = tf.keras.callbacks.ModelCheckpoint(MODEL_DIR + '/model.{epoch:02d}-{val_ssim:.10f}.hdf5', 
                                                 monitor='val_ssim', verbose=1, period=1, save_best_only=True)
@@ -69,6 +72,8 @@ def main(argv):
     
     copy_keras = utils.CopyKerasModel(MODEL_DIR, LOG_DIR)
     terminate = tf.keras.callbacks.TerminateOnNaN()
+    
+    # Fit the model
     model.fit(train_dataset,
               steps_per_epoch=int(count/args.bs),
               epochs=args.epochs,
@@ -115,9 +120,9 @@ if __name__ == '__main__':
     # Optimization Params
     parser.add_argument('--cycle_lr', default=False, type=bool,  help='cycle learning rate')
     parser.add_argument('--lr',       default=0.002, type=float, help='learning_rate')
-    parser.add_argument('--l_ssim',   default=True,     type=bool, help='ssim lambda')
-    parser.add_argument('--l_mae',    default=False,     type=bool, help='ssim mae')
-    parser.add_argument('--l_mse',    default=False,     type=bool, help='ssim mse')
+    parser.add_argument('--l_ssim',   default=True,  type=bool, help='ssim lambda')
+    parser.add_argument('--l_mae',    default=False, type=bool, help='ssim mae')
+    parser.add_argument('--l_mse',    default=False, type=bool, help='ssim mse')
 
     # Cloud ML Params
     parser.add_argument('--job-dir', default='gs://duke-research-us/mimicknet/experiments/manual_unet', help='Job directory for Google Cloud ML')
