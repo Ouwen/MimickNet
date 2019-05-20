@@ -4,8 +4,8 @@ trainingInput:
   hyperparameters:
     goal: MAXIMIZE
     hyperparameterMetricTag: epoch_val_ssim
-    maxTrials: 1000
-    maxParallelTrials: 10
+    maxTrials: 50
+    maxParallelTrials: 1
     maxFailedTrials: 100
     enableTrialEarlyStopping: TRUE
     params:
@@ -28,6 +28,11 @@ trainingInput:
       discreteValues:
       - 0
       - 1
+    - parameterName: cycle_lr
+      type: DISCRETE
+      discreteValues:
+      - 0
+      - 1
     - parameterName: actv
       type: CATEGORICAL
       categoricalValues:
@@ -38,6 +43,21 @@ trainingInput:
       type: DOUBLE
       minValue: 0
       maxValue: 0.5
+      scaleType: UNIT_LINEAR_SCALE
+    - parameterName: l_ssim
+      type: DOUBLE
+      minValue: 0
+      maxValue: 1
+      scaleType: UNIT_LINEAR_SCALE
+    - parameterName: l_mse
+      type: DOUBLE
+      minValue: 0
+      maxValue: 1
+      scaleType: UNIT_LINEAR_SCALE
+    - parameterName: l_mae
+      type: DOUBLE
+      minValue: 0
+      maxValue: 1
       scaleType: UNIT_LINEAR_SCALE
     - parameterName: lr
       type: DOUBLE
@@ -54,8 +74,3 @@ trainingInput:
       minValue: 0.00001
       maxValue: 0.1
       scaleType: UNIT_LOG_SCALE
-    - parameterName: cycle_lr
-      type: DISCRETE
-      discreteValues:
-      - 0
-      - 1

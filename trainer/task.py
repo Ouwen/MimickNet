@@ -4,6 +4,7 @@ from trainer import cycle_lr
 import sys
 from trainer import utils
 from trainer import models
+tf.logging.set_verbosity(tf.logging.ERROR)
 
 def main(argv):
     args = parser.parse_args()
@@ -26,9 +27,9 @@ def main(argv):
     
     # Load Data
     mimick_dataset = utils.MimickDataset(height=args.in_h, width=args.in_w, log_compress=args.lg_c)
-    train_dataset, count = mimick_dataset.get_paired_ultrasound_dataset(csv='gs://duke-research-us/mimicknet/data/training-v1.csv', batch_size=args.bs)
-    test_dataset, count = mimick_dataset.get_paired_ultrasound_dataset(csv='gs://duke-research-us/mimicknet/data/testing-v1.csv', batch_size=args.bs)
-    
+    train_dataset, train_count = mimick_dataset.get_paired_ultrasound_dataset(csv='gs://duke-research-us/mimicknet/data/training-v1.csv', batch_size=args.bs)
+    test_dataset, val_count = mimick_dataset.get_paired_ultrasound_dataset(csv='gs://duke-research-us/mimicknet/data/testing-v1.csv', batch_size=args.bs)
+
     # Select and Compile Model
     if args.res:
         ModelClass = models.ResUnetModel
@@ -51,14 +52,14 @@ def main(argv):
     # Generate Callbacks
     tensorboard = tf.keras.callbacks.TensorBoard(log_dir=LOG_DIR, write_graph=True, update_freq='epoch')
     saving = tf.keras.callbacks.ModelCheckpoint(MODEL_DIR + '/model.{epoch:02d}-{val_ssim:.10f}.hdf5', 
-                                                monitor='val_ssim', verbose=1, period=1, save_best_only=True)
+                                                monitor='val_ssim', verbose=1, period=1, mode='max', save_best_only=True)
     
-    early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_ssim', patience=8, verbose=1, mode='auto', restore_best_weights=True)
+    early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_ssim', patience=4, verbose=1, mode='max')
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=2, min_lr=args.lr*.01)
     if args.cycle_lr:
-        reduce_lr = cycle_lr.CyclicLR(base_lr=args.lr*.01, max_lr=args.lr*10, step_size=1000, mode='triangular2')
+        reduce_lr = cycle_lr.CyclicLR(base_lr=args.lr*.01, max_lr=args.lr, step_size=2*int(train_count/args.bs), mode='triangular2')
 
-    image_gen = utils.GenerateImages(model, LOG_DIR, log_compress=args.lg_c, interval=int(count/args.bs),
+    image_gen = utils.GenerateImages(model, LOG_DIR, log_compress=args.lg_c, interval=int(train_count/args.bs),
                                      files=[
                                         ('fetal', 'rfd_fetal_ch.uri_SpV5192_VpF1362_FpA6_20121101150345_1.mat'),
                                         ('fetal2', 'rfd_fetal_ch.uri_SpV6232_VpF908_FpA9_20121031150931_1.mat'),                        
@@ -71,14 +72,14 @@ def main(argv):
                                      ])
     
     copy_keras = utils.CopyKerasModel(MODEL_DIR, LOG_DIR)
-    terminate = tf.keras.callbacks.TerminateOnNaN()
+    terminate = tf.keras.callbacks.TerminateOnNaN()  
     
     # Fit the model
     model.fit(train_dataset,
-              steps_per_epoch=int(count/args.bs),
+              steps_per_epoch= int(train_count/args.bs),
               epochs=args.epochs,
               validation_data=test_dataset,
-              validation_steps=int(count/args.bs),
+              validation_steps=int(val_count/args.bs),
               verbose=1,
               callbacks=[terminate, tensorboard, saving, reduce_lr, copy_keras, image_gen, early_stop])
 
@@ -97,7 +98,7 @@ if __name__ == '__main__':
     
     # Activation
     parser.add_argument('--actv',     default='relu', help='activation is either relu or selu')
-    parser.add_argument('--lelu_a',   default=0.1, type=float, help='activation is either relu or selu')
+    parser.add_argument('--lelu_a',   default=0.1, type=float, help='lelu alpha')
     
     # ModelType
     parser.add_argument('--res',      default= False, type=bool, help='Enable residual learning')
@@ -106,25 +107,25 @@ if __name__ == '__main__':
     # Model Params
     parser.add_argument('--f_h',      default= 3, type=int, help='filter height')
     parser.add_argument('--f_w',      default= 3, type=int, help='filter width')
-    parser.add_argument('--f1',       default= 4, type=int, help='filter 1')
-    parser.add_argument('--f2',       default= 4, type=int, help='filter 1')
-    parser.add_argument('--f3',       default= 4, type=int, help='filter 1')
-    parser.add_argument('--f4',       default= 4, type=int, help='filter 1')
-    parser.add_argument('--fbn',      default= 4, type=int, help='filter 1')
+    parser.add_argument('--f1',       default= 16, type=int, help='filter 1')
+    parser.add_argument('--f2',       default= 16, type=int, help='filter 2')
+    parser.add_argument('--f3',       default= 16, type=int, help='filter 3')
+    parser.add_argument('--f4',       default= 16, type=int, help='filter 4')
+    parser.add_argument('--fbn',      default= 16, type=int, help='filter bottleneck')
 
     # Regularization
     parser.add_argument('--dr',       default= 0, type=float, help='dropout rate')
-    parser.add_argument('--l1',       default= 0, type=float, help='dropout rate')
-    parser.add_argument('--l2',       default= 0, type=float, help='dropout rate')
+    parser.add_argument('--l1',       default= 0, type=float, help='l1 regularization')
+    parser.add_argument('--l2',       default= 0, type=float, help='l2 regularization')
     
     # Optimization Params
     parser.add_argument('--cycle_lr', default=False, type=bool,  help='cycle learning rate')
     parser.add_argument('--lr',       default=0.002, type=float, help='learning_rate')
-    parser.add_argument('--l_ssim',   default=True,  type=bool, help='ssim lambda')
-    parser.add_argument('--l_mae',    default=False, type=bool, help='ssim mae')
-    parser.add_argument('--l_mse',    default=False, type=bool, help='ssim mse')
+    parser.add_argument('--l_ssim',   default=0, type=float, help='ssim loss')
+    parser.add_argument('--l_mae',    default=0, type=float, help='mae loss')
+    parser.add_argument('--l_mse',    default=0, type=float, help='mse loss')
 
     # Cloud ML Params
-    parser.add_argument('--job-dir', default='gs://duke-research-us/mimicknet/experiments/manual_unet', help='Job directory for Google Cloud ML')
+    parser.add_argument('--job-dir', default='gs://duke-research-us/mimicknet/experiments/debug', help='Job directory for Google Cloud ML')
     
     main(sys.argv)

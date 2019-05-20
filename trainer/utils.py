@@ -4,33 +4,27 @@ import scipy.io as sio
 import numpy as np
 import os
 from tensorflow.python.lib.io import file_io
+import subprocess
 
 class MimickDataset():
     def __init__(self, height=512, width=64, log_compress=True,
-                 image_dir=None, bucket_dir='gs://duke-research-us/mimicknet/data/duke-ultrasound-v1'):
+                 image_dir='/tmp/data', bucket_dir='gs://duke-research-us/mimicknet/data/duke-ultrasound-v1'):
         self.height = height
         self.width = width
         self.log_compress = log_compress
         self.image_dir = image_dir
         self.bucket_dir = bucket_dir
-
-    def read_mat_generator(self):
-        def read_mat_op(filename, height=self.height, width=self.width, log_compress=self.log_compress, 
-                        image_dir=self.image_dir, bucket_dir=self.bucket_dir):
-            def _read_mat(filename):
-                filepath = tf.gfile.Open('{}/{}'.format(bucket_dir, filename.decode("utf-8")), 'rb')
-                if image_dir is not None:
-                    filepath = '{}/{}'.format(image_dir, filename.decode("utf-8"))
-
-                matfile = sio.loadmat(filepath)
-                dtce = matfile['dtce']
-                dtce = (dtce - dtce.min())/(dtce.max() - dtce.min())
-                
-                iq = abs(matfile['iq'])
-                iq = np.log10(iq) if log_compress else iq
-                iq = (iq-iq.min())/(iq.max() - iq.min())
+        
+        if not os.path.isdir(image_dir):
+            os.mkdir(image_dir)
+            bashCommand = 'gsutil -m cp -r {}/* {}'.format(bucket_dir, image_dir)
+            code = subprocess.call(bashCommand.split())
+            print(code)
+            
+    def random_reflection_crop_generator(self):
+        def random_reflection_crop_op(iq, dtce, height=self.height, width=self.width):
+            def _random_reflection_crop(iq, dtce):
                 shape = iq.shape
-                
                 # Pad data to batch height and width with reflections, and randomly crop
                 if shape[0] < height:
                     remainder = height - shape[0]
@@ -59,27 +53,61 @@ class MimickDataset():
                     start = np.random.randint(0, shape[1] - width)
                     dtce = dtce[:, start:start+width]
                     iq = iq[:, start:start+width]
+                return iq, dtce
 
-                return iq.astype('float32'), dtce.astype('float32')
-
-            output = tf.py_func(_read_mat, [filename], [tf.float32, tf.float32])
+            output = tf.py_func(_random_reflection_crop, [iq, dtce], [tf.float32, tf.float32])
             iq = tf.reshape(output[0], (height, width, 1))
             dtce = tf.reshape(output[1], (height, width, 1))
             return iq, dtce
+        return random_reflection_crop_op
+
+    def read_mat_generator(self):
+        def read_mat_op(filename, log_compress=self.log_compress, image_dir=self.image_dir, bucket_dir=self.bucket_dir):
+            def _read_mat(filename):
+                filepath = tf.gfile.Open('{}/{}'.format(bucket_dir, filename.decode("utf-8")), 'rb')
+                if image_dir is not None:
+                    filepath = '{}/{}'.format(image_dir, filename.decode("utf-8"))
+
+                matfile = sio.loadmat(filepath)
+                dtce = matfile['dtce']
+                dtce = (dtce - dtce.min())/(dtce.max() - dtce.min())
+                
+                iq = abs(matfile['iq'])
+                iq = np.log10(iq) if log_compress else iq
+                iq = (iq-iq.min())/(iq.max() - iq.min())
+                shape = iq.shape
+                return iq.astype('float32'), dtce.astype('float32'), shape
+                
+            output = tf.py_func(_read_mat, [filename], [tf.float32, tf.float32, tf.int64])
+            shape = tf.concat([[1], output[2]], 0)
+            iq = tf.reshape(output[0], shape)
+            dtce = tf.reshape(output[1], shape)
+            return iq, dtce
         return read_mat_op
+
+    def get_parallel_interlave(self, filename):
+        iq, dtce = self.read_mat_generator()(filename)
+        iq_ds = tf.data.Dataset.from_tensor_slices(iq)
+        dtce_ds = tf.data.Dataset.from_tensor_slices(dtce)
+        return tf.data.Dataset.zip((iq_ds, dtce_ds))
 
     def get_dataset(self, csv):
         filepath = tf.gfile.Open(csv, 'rb')
         filelist = list(pd.read_csv(filepath)['filename'])
-        count = len(filelist)
-        dataset = tf.data.Dataset.from_tensor_slices(filelist)
-        dataset = dataset.shuffle(count).repeat()
-        dataset = dataset.map(self.read_mat_generator(), num_parallel_calls=tf.data.experimental.AUTOTUNE)
+        count = len(filelist)       
+        
+        filenames = tf.data.Dataset.from_tensor_slices(filelist).shuffle(count)
+        dataset = filenames.apply(tf.data.experimental.parallel_interleave(self.get_parallel_interlave, 
+                                                                           cycle_length=64, 
+                                                                           sloppy=True))
+        dataset = dataset.map(self.random_reflection_crop_generator(), num_parallel_calls=tf.data.experimental.AUTOTUNE)
+        dataset = dataset.repeat()
         return dataset, count
 
     def get_paired_ultrasound_dataset(self, csv='data/training-v1.csv', batch_size=16):
         dataset, count = self.get_dataset(csv)
-        dataset = dataset.batch(batch_size).prefetch(batch_size)
+        dataset = dataset.batch(batch_size)
+        dataset = dataset.apply(tf.data.experimental.prefetch_to_device('gpu:0', buffer_size=2))
         return dataset, count
 
     def get_unpaired_ultrasound_dataset(self, domain, csv=None, batch_size=16):
@@ -91,7 +119,7 @@ class MimickDataset():
         elif domain == 'dtce':
             csv = './data/training_b.csv' if csv is None else csv
             dataset, count = get_dataset(csv)
-            dataset = dataset.map(lambda iq, dtce: iq)
+            dataset = dataset.map(lambda iq, dtce: dtce)
         else:
             raise Exception('domain must be "iq" or "dtce", given {}'.format(domain))
         
