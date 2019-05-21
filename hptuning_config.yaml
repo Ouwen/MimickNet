@@ -4,9 +4,9 @@ trainingInput:
   hyperparameters:
     goal: MAXIMIZE
     hyperparameterMetricTag: epoch_val_ssim
-    maxTrials: 50
+    maxTrials: 30
     maxParallelTrials: 1
-    maxFailedTrials: 100
+    maxFailedTrials: 30
     enableTrialEarlyStopping: TRUE
     params:
     - parameterName: m

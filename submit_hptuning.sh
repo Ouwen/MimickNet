@@ -1,4 +1,4 @@
-GCS_BUCKET="gs://duke-research-us/mimicknet/experiments/unet"
+GCS_BUCKET="gs://duke-research-us/mimicknet/experiments/unet_may20"
 REGION=us-east1
 BUCKET=$GCS_BUCKET
 
@@ -37,9 +37,9 @@ do
         --config hptuning_config.yaml \
         -- \
         --f1  $i \
-        --f2  $i*2 \
-        --f3  $i*2*2 \
-        --f4  $i*2*2*2 \
-        --fbn $i*2*2*2*2 \
+        --f2  $((i*2)) \
+        --f3  $((i*2*2)) \
+        --f4  $((i*2*2*2)) \
+        --fbn $((i*2*2*2*2)) \
         --epochs 20
 done
