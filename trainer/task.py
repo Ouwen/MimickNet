@@ -24,11 +24,29 @@ def main(argv):
     # Set filter size and shape
     filter_shape = (args.f_h, args.f_w)
     filters = [args.f1*4, args.f2*4, args.f3*4, args.f4*4, args.fbn*4]
+    if args.filter_case is not None:
+        filters_cases = {
+            'hp_4': [16, 16, 16, 16, 16]
+            'hp_8': [32, 32, 32, 32, 32]
+            'hp_16': [64, 64, 64, 64, 64]
+            'hp_py_2': [8, 16, 32, 64, 128]
+            'hp_py_4': [16, 32, 64, 128, 256]
+            'hp_py_8': [32, 64, 128, 256, 512]
+        }
+        filters = filters_cases[args.filter_case]
     
-    # Load Data
-    mimick_dataset = utils.MimickDataset(height=args.in_h, width=args.in_w, log_compress=args.lg_c)
-    train_dataset, train_count = mimick_dataset.get_paired_ultrasound_dataset(csv='gs://duke-research-us/mimicknet/data/training-v1.csv', batch_size=args.bs)
-    test_dataset, val_count = mimick_dataset.get_paired_ultrasound_dataset(csv='gs://duke-research-us/mimicknet/data/testing-v1.csv', batch_size=args.bs)
+    # Load Data    
+    mimick_dataset = utils.MimickDataset(log_compress=args.lg_c)
+    train_dataset, train_count = mimick_dataset.get_paired_ultrasound_dataset(
+        csv='gs://duke-research-us/mimicknet/data/training-v1.csv', 
+        batch_size=args.bs, 
+        shape=(args.in_h, args.in_w),
+        sc=False)
+    test_dataset, val_count = mimick_dataset.get_paired_ultrasound_dataset(
+        csv='gs://duke-research-us/mimicknet/data/testing-v1.csv', 
+        batch_size=args.bs,
+        shape=(args.in_h, args.in_w),
+        sc=False)
 
     # Select and Compile Model
     if args.res:
@@ -103,15 +121,16 @@ if __name__ == '__main__':
     # ModelType
     parser.add_argument('--res',      default= False, type=bool, help='Enable residual learning')
     parser.add_argument('--ps',       default= False, type=bool, help='Enable pixel shuffler upsampling')
-
+    
     # Model Params
+    parser.add_argument('--filter_case', help='Preset filter structure')
     parser.add_argument('--f_h',      default= 3, type=int, help='filter height')
     parser.add_argument('--f_w',      default= 3, type=int, help='filter width')
-    parser.add_argument('--f1',       default= 16, type=int, help='filter 1')
-    parser.add_argument('--f2',       default= 16, type=int, help='filter 2')
-    parser.add_argument('--f3',       default= 16, type=int, help='filter 3')
-    parser.add_argument('--f4',       default= 16, type=int, help='filter 4')
-    parser.add_argument('--fbn',      default= 16, type=int, help='filter bottleneck')
+    parser.add_argument('--f1',       default= 8, type=int, help='filter 1')
+    parser.add_argument('--f2',       default= 8, type=int, help='filter 2')
+    parser.add_argument('--f3',       default= 8, type=int, help='filter 3')
+    parser.add_argument('--f4',       default= 8, type=int, help='filter 4')
+    parser.add_argument('--fbn',      default= 8, type=int, help='filter bottleneck')
 
     # Regularization
     parser.add_argument('--dr',       default= 0, type=float, help='dropout rate')
@@ -126,6 +145,6 @@ if __name__ == '__main__':
     parser.add_argument('--l_mse',    default=0, type=float, help='mse loss')
 
     # Cloud ML Params
-    parser.add_argument('--job-dir', default='gs://duke-research-us/mimicknet/experiments/debug', help='Job directory for Google Cloud ML')
+    parser.add_argument('--job-dir', default='gs://duke-research-us/mimicknet/experiments/debug_5222019', help='Job directory for Google Cloud ML')
     
     main(sys.argv)
