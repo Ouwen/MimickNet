@@ -4,9 +4,9 @@ trainingInput:
   hyperparameters:
     goal: MAXIMIZE
     hyperparameterMetricTag: epoch_val_ssim
-    maxTrials: 30
-    maxParallelTrials: 1
-    maxFailedTrials: 30
+    maxTrials: 200
+    maxParallelTrials: 10
+    maxFailedTrials: 100
     enableTrialEarlyStopping: TRUE
     params:
     - parameterName: m
@@ -16,7 +16,10 @@ trainingInput:
     - parameterName: lg_c
       type: DISCRETE
       discreteValues:
-      - 0
+      - 1
+    - parameterName: clip
+      type: DISCRETE
+      discreteValues:
       - 1
     - parameterName: res
       type: DISCRETE
@@ -32,13 +35,21 @@ trainingInput:
       type: DISCRETE
       discreteValues:
       - 0
-      - 1
     - parameterName: actv
       type: CATEGORICAL
       categoricalValues:
       - relu
       - selu
       - lrelu
+    - parameterName: filter_case
+      type: CATEGORICAL
+      categoricalValues:
+      - hp_4
+      - hp_8
+      - hp_16
+      - hp_py_2
+      - hp_py_4
+      - hp_py_8
     - parameterName: dr
       type: DOUBLE
       minValue: 0

@@ -6,6 +6,9 @@ import os
 from tensorflow.python.lib.io import file_io
 import subprocess
 import polarTransform
+from trainer import custom_ssim
+import csv
+import time
 
 def ssim_multiscale(y_true, y_pred): return tf.image.ssim_multiscale(y_true, y_pred, 1)
 def ssim(y_true, y_pred): return tf.image.ssim(y_true, y_pred, 1)
@@ -16,6 +19,12 @@ def combined_loss(l_ssim=0.8, l_mae=0.1, l_mse=0.1):
         return l_ssim*ssim_loss(y_true, y_pred) + l_mae*tf.abs(y_true - y_pred) +  l_mse*tf.square(y_true - y_pred)
     return _combined_loss
 
+def download_data(image_dir='/tmp/duke-data', bucket_dir='gs://duke-research-us/mimicknet/data/duke-ultrasound-v2/*'):
+    if not os.path.exists(image_dir):
+        os.mkdir(image_dir)
+        subprocess.call(['df'])
+        subprocess.call('gsutil -m cp {} {}'.format(bucket_dir, image_dir).split(' '))
+        
 def loadmat(filename):
     '''
     this function should be called instead of direct sio.loadmat
@@ -79,12 +88,16 @@ def get_name(args, model):
             name += key + '_' + str(args_dict[key]) + ','
     return name[:-1]
 
-def mat2model(matfile_path, log_compress=True):
+def mat2model(matfile_path, log_compress=True, clipping=False):
     matfile = sio.loadmat(matfile_path)
-    iq = abs(matfile['iq'])
-    iq = np.log10(iq) if log_compress else iq
+    iq = np.abs(matfile['iq'])
+    if clipping:        
+        iq = 20*np.log10(iq/iq.max())
+        iq = np.clip(iq, -80, 0)
+    elif log_compress:
+        iq = np.log10(iq)
     iq = (iq-iq.min())/(iq.max() - iq.min())
-    
+
     dtce = matfile['dtce']
     dtce = (dtce - dtce.min())/(dtce.max() - dtce.min())
     
@@ -155,39 +168,45 @@ def scan_convert(image, acq_params):
     return np.transpose(image[:, int(initial_radius):])
 
 class MimickDataset():
-    def __init__(self, log_compress=True,
+    def __init__(self, log_compress=True, clipping = False,
                  image_dir=None, bucket_dir='gs://duke-research-us/mimicknet/data/duke-ultrasound-v1'):
         self.log_compress = log_compress
+        self.clipping = clipping
         self.image_dir = image_dir
         self.bucket_dir = bucket_dir
 
     def read_mat_generator(self, shape=None, sc=False):
         def read_mat_op(filename):           
             def _read_mat(filename, shape=shape):
-                filepath = tf.gfile.Open('{}/{}'.format(self.bucket_dir, filename.decode("utf-8")), 'rb')
                 if self.image_dir is not None:
                     filepath = '{}/{}'.format(self.image_dir, filename.decode("utf-8"))
-
+                else:
+                    filepath = tf.gfile.Open('{}/{}'.format(self.bucket_dir, filename.decode("utf-8")), 'rb')
                 matfile = sio.loadmat(filepath) if not scan_convert else loadmat(filepath)
                 dtce = matfile['dtce']
                 dtce = (dtce - dtce.min())/(dtce.max() - dtce.min())
-                iq = abs(matfile['iq'])
-                iq = np.log10(iq) if self.log_compress else iq
-                iq = (iq-iq.min())/(iq.max() - iq.min())
                 
+                iq = np.abs(matfile['iq'])
+                if self.clipping:        
+                    iq = 20*np.log10(iq/iq.max())
+                    iq = np.clip(iq, -80, 0)
+                elif self.log_compress:
+                    iq = np.log10(iq)
+                iq = (iq-iq.min())/(iq.max() - iq.min())
+
                 if sc:
                     iq = scan_convert(iq, matfile['acq_params'])
                     dtce = scan_convert(dtce, matfile['acq_params'])
                     
                 seed = np.random.randint(0, 2147483647)
                 iq, _ = make_shape(iq, shape=shape, seed=seed)
-                dtce, _ = make_shape(dtce, shape=shape, seed=seed)
-                shape = iq.shape
-                return iq.astype('float32'), dtce.astype('float32'), shape
-            
+                dtce, _ = make_shape(dtce, shape=shape, seed=seed)  
+                return iq.astype('float32'), dtce.astype('float32'), iq.shape
+                        
             output = tf.py_func(_read_mat, [filename], [tf.float32, tf.float32, tf.int64])
-            iq = tf.reshape(output[0], shape + (1,))
-            dtce = tf.reshape(output[1], shape + (1,))
+            output_shape = shape + (1,) if shape is not None else tf.concat([output[2], [1]], axis=0)
+            iq = tf.reshape(output[0], output_shape)
+            dtce = tf.reshape(output[1], output_shape)
             return iq, dtce
         return read_mat_op
 
@@ -200,9 +219,13 @@ class MimickDataset():
         dataset = dataset.map(self.read_mat_generator(shape=shape, sc=sc), num_parallel_calls=tf.data.experimental.AUTOTUNE)
         return dataset, count
 
-    def get_paired_ultrasound_dataset(self, csv='data/training-v1.csv', batch_size=16, shape=(512, 64), sc=False):
+    def get_paired_ultrasound_dataset(self, csv='gs://duke-research-us/mimicknet/data/training-v1.csv', batch_size=16, shape=(512, 64), sc=False):
         dataset, count = self.get_dataset(csv, shape=shape, sc=sc)
-        dataset = dataset.batch(batch_size).prefetch(1)
+        dataset = dataset.batch(batch_size)
+        dataset.apply(tf.data.experimental.prefetch_to_device(
+            'gpu:0',
+            buffer_size=batch_size
+        ))
         return dataset, count
 
     def get_unpaired_ultrasound_dataset(self, domain, csv=None, batch_size=16):
@@ -285,15 +308,17 @@ class GenerateImages(tf.keras.callbacks.Callback):
                 mse = tf.math.reduce_mean(tf.math.square((self.real_placeholders[name] - self.fake_placeholders[name])))
                 mae = tf.math.reduce_mean(tf.math.abs((self.real_placeholders[name] - self.fake_placeholders[name])))
                 psnr = tf.image.psnr(self.real_placeholders[name], self.fake_placeholders[name], 1)
-                ssim = tf.image.ssim(self.real_placeholders[name], self.fake_placeholders[name], 1)
-                self.summaries = {
+                val, cs, l = custom_ssim.ssim(self.real_placeholders[name], self.fake_placeholders[name], 1)
+                self.summaries[name] = {
                     'mse': tf.summary.scalar(name, mse, family='mse_val_image'),
                     'mae': tf.summary.scalar(name, mae, family='mae_val_image'),
-                    'ssim': tf.summary.scalar(name, ssim[0], family='ssim_val_image'),
+                    'ssim': tf.summary.scalar(name, val[0], family='ssim_val_image'),
+                    'contrast_structure': tf.summary.scalar(name, cs[0], family='contrast_structure_val_image'),
+                    'luminance': tf.summary.scalar(name, l[0], family='luminance_val_image'),
                     'psnr': tf.summary.scalar(name, psnr[0], family='psnr_val_image'),
                     'real_image': tf.summary.image('real', self.real_placeholders[name], family=name),
                     'fake_image': tf.summary.image('fake', self.fake_placeholders[name],  family=name),
-                    'delta_image': tf.summary.image('delta', tf.abs(self.real_placeholders[name]-self.fake_placeholders[name]),  family=name)
+                    'delta_image': tf.summary.image('delta', tf.abs(self.real_placeholders[name]-self.fake_placeholders[name]), family=name)
                 }
             self.sessions[name] = tf.Session(graph=self.graphs[name])
 
@@ -306,14 +331,20 @@ class GenerateImages(tf.keras.callbacks.Callback):
             for name, iq, dtce, acq_params in self.files:
                 sess = self.sessions[name]
                 output = self.forward.predict(iq)
+                
                 output = scan_convert(np.squeeze(output), acq_params)
+                output = np.clip(output, 0, 1)
                 output = np.expand_dims(np.expand_dims(output, axis=0), axis=-1)
+                
                 dtce = scan_convert(np.squeeze(dtce), acq_params)
+                dtce = np.clip(dtce, 0, 1)
                 dtce = np.expand_dims(np.expand_dims(dtce, axis=0), axis=-1)
+                
                 iq = scan_convert(np.squeeze(iq), acq_params)
+                iq = np.clip(iq, 0, 1)
                 iq = np.expand_dims(np.expand_dims(iq, axis=0), axis=-1)
-
-                summary_dict = sess.run(self.summaries, feed_dict = {
+                
+                summary_dict = sess.run(self.summaries[name], feed_dict = {
                    self.real_placeholders[name]: dtce,
                    self.fake_placeholders[name]: output,
                 })
@@ -325,4 +356,83 @@ class GenerateImages(tf.keras.callbacks.Callback):
     def on_batch_begin(self, batch, logs={}):
         self.generate_images()
     def on_train_end(self, logs={}):
-        self.writer.close()
+        self.generate_images()
+
+class GetCsvMetrics(tf.keras.callbacks.Callback):
+    def __init__(self, forward, job_dir, log_compress = True,
+                 test_csv='gs://duke-research-us/mimicknet/data/testing-v1.csv', 
+                 bucket_dir='gs://duke-research-us/mimicknet/data/duke-ultrasound-v1', 
+                 image_dir=None):
+        super()
+        self.bucket_dir = bucket_dir
+        self.image_dir = image_dir
+        self.filelist = list(pd.read_csv(tf.gfile.Open(test_csv, 'rb'))['filename'])                
+        self.forward = forward
+        self.log_compress = log_compress
+
+        self.csv_filepath = tf.gfile.Open('{}/metrics.csv'.format(job_dir), 'wb')
+        self.writer = csv.DictWriter(self.csv_filepath, fieldnames=['filename', 'mse', 'mae', 'ssim', 'contrast_structure', 'luminance', 'psnr'])
+        self.writer.writeheader()
+        self.csv_filepath.flush()
+        
+        self.graph = tf.Graph()
+        with self.graph.as_default():
+            self.real_placeholder = tf.placeholder(tf.float32)
+            self.fake_placeholder = tf.placeholder(tf.float32)
+            psnr = tf.image.psnr(self.real_placeholder, self.fake_placeholder, 1)
+            val, cs, l = custom_ssim.ssim(self.real_placeholder, self.fake_placeholder, 1)
+            self.metrics = {
+                'mse': tf.math.reduce_mean(tf.math.square((self.real_placeholder - self.fake_placeholder))),
+                'mae': tf.math.reduce_mean(tf.math.abs((self.real_placeholder - self.fake_placeholder))),
+                'ssim': val[0],
+                'contrast_structure': cs[0],
+                'luminance': l[0],
+                'psnr': psnr[0]
+            }
+        self.session = tf.Session(graph=self.graph)
+                        
+    def full_validation(self):
+        for i, filename in enumerate(self.filelist):
+            print('{}/{}, {}'.format(i, len(self.filelist), filename))
+            filepath = tf.gfile.Open('{}/{}'.format(self.bucket_dir, filename), 'rb')
+            if self.image_dir is not None: 
+                filepath = '{}/{}'.format(self.image_dir, filename)
+
+            matfile = loadmat(filepath)
+            iq = abs(matfile['iq'])
+            iq = np.log10(iq) if self.log_compress else iq
+            iq = (iq-iq.min())/(iq.max() - iq.min())
+            dtce = matfile['dtce']
+            dtce = (dtce - dtce.min())/(dtce.max() - dtce.min())
+
+            iq, _ = make_shape(iq)
+            dtce, _ = make_shape(dtce)
+            iq = np.expand_dims(np.expand_dims(iq, axis=0), axis=-1)
+            dtce = np.expand_dims(np.expand_dims(dtce, axis=0), axis=-1)
+
+            acq_params = matfile['acq_params']
+
+            output = self.forward.predict(iq)
+
+            output = scan_convert(np.squeeze(output), acq_params)
+            output = np.clip(output, 0, 1)
+            output = np.expand_dims(np.expand_dims(output, axis=0), axis=-1)
+
+            dtce = scan_convert(np.squeeze(dtce), acq_params)
+            dtce = np.clip(dtce, 0, 1)
+            dtce = np.expand_dims(np.expand_dims(dtce, axis=0), axis=-1)          
+            
+            my_metrics = self.session.run(self.metrics, feed_dict={
+                self.real_placeholder: dtce,
+                self.fake_placeholder: output
+            })
+            
+            my_metrics['filename'] = filename
+            self.writer.writerow(my_metrics)
+            
+    
+    def on_train_end(self, epoch, logs={}):
+        print('Running final validation metrics')
+        self.full_validation()
+        self.csv_filepath.flush()
+        
