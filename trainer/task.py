@@ -75,7 +75,7 @@ def main(argv):
     saving = tf.keras.callbacks.ModelCheckpoint(MODEL_DIR + '/model.{epoch:02d}-{val_ssim:.10f}.hdf5', 
                                                 monitor='val_ssim', verbose=1, period=1, mode='max', save_best_only=True)
     
-    early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=3, verbose=1, mode='max')
+    early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=3, verbose=1)
     reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=2, min_lr=args.lr*.001)
     if args.cycle_lr:
         reduce_lr = cycle_lr.CyclicLR(base_lr=args.lr*.01, max_lr=args.lr, step_size=2*int(train_count/args.bs), mode='triangular2')
