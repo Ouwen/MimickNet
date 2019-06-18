@@ -6,7 +6,7 @@ import os
 from tensorflow.python.lib.io import file_io
 import subprocess
 import polarTransform
-from trainer import custom_ssim
+import custom_ssim
 import csv
 import time
 
@@ -264,7 +264,7 @@ class CopyKerasModel(tf.keras.callbacks.Callback):
         self.upload_files()
 
 class GenerateImages(tf.keras.callbacks.Callback):
-    def __init__(self, forward, log_dir, interval=1000, log_compress=True,
+    def __init__(self, forward, log_dir, interval=1000, log_compress=True, clipping=True,
                  image_dir=None, bucket_dir='gs://duke-research-us/mimicknet/data/duke-ultrasound-v1', 
                  files=[]):
         super()
@@ -279,6 +279,8 @@ class GenerateImages(tf.keras.callbacks.Callback):
         self.real_placeholders = {}
         self.fake_placeholders = {}
         self.summaries = {}
+        self.log_compress = log_compress
+        self.clipping = clipping
         
         # Load files of interest
         for name, filename in files:
@@ -287,7 +289,11 @@ class GenerateImages(tf.keras.callbacks.Callback):
             
             matfile = loadmat(filepath)
             iq = abs(matfile['iq'])
-            iq = np.log10(iq) if log_compress else iq
+            if self.clipping:
+                iq = 20*np.log10(iq/iq.max())
+                iq = np.clip(iq, -80, 0)
+            elif self.log_compress:
+                iq = np.log10(iq)
             iq = (iq-iq.min())/(iq.max() - iq.min())
             dtce = matfile['dtce']
             dtce = (dtce - dtce.min())/(dtce.max() - dtce.min())
@@ -359,7 +365,7 @@ class GenerateImages(tf.keras.callbacks.Callback):
         self.generate_images()
 
 class GetCsvMetrics(tf.keras.callbacks.Callback):
-    def __init__(self, forward, job_dir, log_compress = True,
+    def __init__(self, forward, job_dir, log_compress = True, clipping = True,
                  test_csv='gs://duke-research-us/mimicknet/data/testing-v1.csv', 
                  bucket_dir='gs://duke-research-us/mimicknet/data/duke-ultrasound-v1', 
                  image_dir=None):
@@ -369,6 +375,7 @@ class GetCsvMetrics(tf.keras.callbacks.Callback):
         self.filelist = list(pd.read_csv(tf.gfile.Open(test_csv, 'rb'))['filename'])                
         self.forward = forward
         self.log_compress = log_compress
+        self.clipping =  clipping
 
         self.csv_filepath = tf.gfile.Open('{}/metrics.csv'.format(job_dir), 'wb')
         self.writer = csv.DictWriter(self.csv_filepath, fieldnames=['filename', 'mse', 'mae', 'ssim', 'contrast_structure', 'luminance', 'psnr'])
@@ -400,7 +407,11 @@ class GetCsvMetrics(tf.keras.callbacks.Callback):
 
             matfile = loadmat(filepath)
             iq = abs(matfile['iq'])
-            iq = np.log10(iq) if self.log_compress else iq
+            if self.clipping:
+                iq = 20*np.log10(iq/iq.max())
+                iq = np.clip(iq, -80, 0)
+            elif self.log_compress:
+                iq = np.log10(iq)
             iq = (iq-iq.min())/(iq.max() - iq.min())
             dtce = matfile['dtce']
             dtce = (dtce - dtce.min())/(dtce.max() - dtce.min())
