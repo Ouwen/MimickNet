@@ -38,7 +38,7 @@ def main(argv):
         filters = filters_cases[args.filter_case]
     
     # Load Data
-    mimick_dataset = utils.MimickDataset(log_compress=args.lg_c, clipping = args.clip, image_dir=None)
+    mimick_dataset = utils.MimickDataset(log_compress=args.lg_c, clipping=args.clip, image_dir=None)
     train_dataset, train_count = mimick_dataset.get_paired_ultrasound_dataset(
         csv='gs://duke-research-us/mimicknet/data/training-v1.csv', 
         batch_size=args.bs, 
@@ -80,7 +80,7 @@ def main(argv):
     if args.cycle_lr:
         reduce_lr = cycle_lr.CyclicLR(base_lr=args.lr*.01, max_lr=args.lr, step_size=2*int(train_count/args.bs), mode='triangular2')
 
-    image_gen = utils.GenerateImages(model, LOG_DIR, log_compress=args.lg_c, interval=int(train_count/args.bs),
+    image_gen = utils.GenerateImages(model, LOG_DIR, log_compress=args.lg_c, clipping=args.clip, interval=int(train_count/args.bs),
                                      files=[
                                         ('fetal', 'rfd_fetal_ch.uri_SpV5192_VpF1362_FpA6_20121101150345_1.mat'),
                                         ('fetal2', 'rfd_fetal_ch.uri_SpV6232_VpF908_FpA9_20121031150931_1.mat'),                        
