@@ -1,34 +1,34 @@
-class CycleGAN:   
-    def __init__(self, g_AB=None, g_BA=None, d_B=None, d_A=None, patch_gan_hw=2**5
-                 d_loss='mse',
-                 g_loss = [
-                     'mse', 'mse', 
-                     'mae', 'mae', 
-                     'mae', 'mae'
-                 ], loss_weights = [
-                     1,  1, 
-                    10, 10, 
-                     1,  1
-                 ], shape = (None, None, 1)):
-        
-        self.shape = shape
-        self.d_loss = d_loss
-        self.g_loss = g_loss
-        self.loss_weight = loss_weight
-        self.patch_gan_hw = patch_gan_hw
+import tensorflow as tf
+import numpy as np
 
-        # Build the generator and discriminator blocks
+class CycleGAN:   
+    def __init__(self, g_AB=None, g_BA=None, d_B=None, d_A=None, patch_gan_hw=2**5, shape = (None, None, 1), verbose=0):
+        self.verbose = verbose
+        self.shape = shape
+
         if d_A is None or d_B is None or g_AB is None or g_BA is None:
             raise Exception('d_A, d_B, g_AB, or g_BA cannot be None and must be a `tf.keras.Model`')
-        
         self.d_A = d_A
         self.d_B = d_B
         self.g_AB = g_AB
         self.g_BA = g_BA
-        
-    def compile(self, optimizer=tf.keras.optimizers.Adam(0.00002, 0.5), metrics=[]):
+        self.patch_gan_hw = patch_gan_hw
+
+    def compile(self, optimizer=tf.keras.optimizers.Adam(0.00002, 0.5), metrics=[], d_loss='mse',
+                g_loss = [
+                    'mse', 'mse', 
+                    'mae', 'mae', 
+                    'mae', 'mae'
+                ], loss_weights = [
+                     1,  1, 
+                    10, 10, 
+                     1,  1
+                ]):
         self.optimizer = optimizer
         self.metrics = metrics
+        self.d_loss = d_loss
+        self.g_loss = g_loss
+        self.loss_weights = loss_weights
         
         self.d_A.compile(loss=self.d_loss, optimizer=self.optimizer, metrics=['accuracy'])
         self.d_B.compile(loss=self.d_loss, optimizer=self.optimizer, metrics=['accuracy'])
@@ -65,20 +65,18 @@ class CycleGAN:
             self.val_fake_placeholder = tf.placeholder(tf.float32)
             self.output_metrics = {}
             for metric in self.metrics:
-                self.output_metrics[metric.__name__] = metric(val_batch_placeholder, val_fake_placeholder)
+                self.output_metrics[metric.__name__] = metric(self.val_batch_placeholder, self.val_fake_placeholder)
         self.metrics_session = tf.Session(graph=self.metrics_graph)
-        
+    
     def validate(self, validation_steps):
         metrics_summary = {}
         for metric in self.metrics:
             metrics_summary[metric.__name__] = []
         
-        for step in validation_steps:
-            self.sess.run(self.dataset_val_next)
+        for step in range(validation_steps):
             val_batch = self.sess.run(self.dataset_val_next)
-            A_batch = val_batch[0]
             B_batch = val_batch[1]
-            fake_B = self.g_AB.predict(A_batch)
+            fake_B = self.g_AB.predict(val_batch[0])
                                     
             forward_metrics = self.metrics_session.run(self.output_metrics, feed_dict={
                 self.val_batch_placeholder: B_batch,
@@ -89,9 +87,10 @@ class CycleGAN:
                 if key not in metrics_summary:
                     metrics_summary[key] = []
                 metrics_summary[key].append(value)
-
+        
+        # average all metrics
         for key, value in metrics_summary.items():
-            metrics_summary[key] = (np.mean(value), np.std(value))
+            metrics_summary[key] = np.mean(value)
         return metrics_summary
     
     def fit(self, dataset_a, dataset_b, batch_size=8, steps_per_epoch=10, epochs=3, validation_data=None, validation_steps=10, 
@@ -101,11 +100,23 @@ class CycleGAN:
             self.dataset_a_next = dataset_a.make_one_shot_iterator().get_next()
             self.dataset_b_next = dataset_b.make_one_shot_iterator().get_next()
             self.dataset_val_next = validation_data.make_one_shot_iterator().get_next()
-
-            self.log = {
-                'losses':[]
-            }
+            
+            metrics = ['val_' + metric.__name__ for metric in self.metrics]
+            metrics.extend(['d_acc', 'g_loss', 'adv_loss', 'recon_loss', 'id_loss'])
+         
             self.sess = tf.Session()
+            for callback in callbacks: 
+                callback.set_model(self.g_AB)
+                callback.set_params({
+                    'verbose': self.verbose,
+                    'epochs': epochs,
+                    'steps': steps_per_epoch,
+                    'metrics': metrics
+                })
+                
+        self.log = {
+            'size': batch_size
+        }
         
         for callback in callbacks: callback.on_train_begin(logs=self.log)
         for epoch in range(epochs):
@@ -117,8 +128,8 @@ class CycleGAN:
                 b_batch = self.sess.run(self.dataset_b_next)
                 
                 self.patch_gan_size = (a_batch.shape[0],
-                                       a_batch.shape[1]//patch_gan_hw, 
-                                       a_batch.shape[2]//patch_gan_hw, 
+                                       a_batch.shape[1]//self.patch_gan_hw, 
+                                       a_batch.shape[2]//self.patch_gan_hw, 
                                        a_batch.shape[3])
                 self.valid = np.ones(self.patch_gan_size)
                 self.fake = np.zeros(self.patch_gan_size)
@@ -138,24 +149,20 @@ class CycleGAN:
 
                 g_loss = self.combined.train_on_batch([a_batch, b_batch],
                                                       [self.valid, self.valid, a_batch, b_batch, a_batch, b_batch])
-                self.log['losses'].append({
-                    'epoch': epoch,
-                    'step': step,
-                    'd_loss': d_loss[0],
-                    'd_acc': 100*d_loss[1],
-                    'g_loss': g_loss[0],
-                    'adv_loss': np.mean(g_loss[1:3]),
-                    'recon_loss': np.mean(g_loss[3:5]),
-                    'id_loss': np.mean(g_loss[5:6])
-                })
+                
+                self.log['d_loss'] = d_loss[0]
+                self.log['d_acc'] = 100*d_loss[1]
+                self.log['g_loss'] = g_loss[0]
+                self.log['adv_loss'] = np.mean(g_loss[1:3])
+                self.log['recon_loss'] = np.mean(g_loss[3:5])
+                self.log['id_loss'] = np.mean(g_loss[5:6])
+                                
                 for callback in callbacks: callback.on_batch_end(step, logs=self.log)
+            
             if validation_data is not None:
                 forward_metrics = self.validate(validation_steps)
                 for key, value in forward_metrics.items():
-                    if 'epoch_val_' + key not in self.log:
-                        self.log['epoch_val_' + key] = []
-                    self.log['epoch_val_' + key].append(value)
+                    self.log['val_' + key] = value
             
             for callback in callbacks: callback.on_epoch_end(epoch, logs=self.log)
-            print('Epoch {}/{}'.format(epoch+1, epochs))
         for callback in callbacks: callback.on_train_end(logs=self.log)

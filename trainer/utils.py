@@ -6,7 +6,7 @@ import os
 from tensorflow.python.lib.io import file_io
 import subprocess
 import polarTransform
-import custom_ssim
+from trainer import custom_ssim
 import csv
 import time
 
@@ -222,21 +222,18 @@ class MimickDataset():
     def get_paired_ultrasound_dataset(self, csv='gs://duke-research-us/mimicknet/data/training-v1.csv', batch_size=16, shape=(512, 64), sc=False):
         dataset, count = self.get_dataset(csv, shape=shape, sc=sc)
         dataset = dataset.batch(batch_size)
-        dataset.apply(tf.data.experimental.prefetch_to_device(
-            'gpu:0',
-            buffer_size=batch_size
-        ))
+        dataset = dataset.prefetch(batch_size)
         return dataset, count
 
-    def get_unpaired_ultrasound_dataset(self, domain, csv=None, batch_size=16):
+    def get_unpaired_ultrasound_dataset(self, domain, csv=None, shape=(512, 64), batch_size=16, sc=False):
         if domain == 'iq':
             csv = './data/training_a.csv' if csv is None else csv
-            dataset, count = self.get_dataset(csv)
+            dataset, count = self.get_dataset(csv, shape=shape, sc=sc)
             dataset = dataset.map(lambda iq, dtce: iq)
         
         elif domain == 'dtce':
             csv = './data/training_b.csv' if csv is None else csv
-            dataset, count = get_dataset(csv)
+            dataset, count = self.get_dataset(csv, shape=shape, sc=sc)
             dataset = dataset.map(lambda iq, dtce: dtce)
         else:
             raise Exception('domain must be "iq" or "dtce", given {}'.format(domain))
@@ -364,6 +361,21 @@ class GenerateImages(tf.keras.callbacks.Callback):
     def on_train_end(self, logs={}):
         self.generate_images()
 
+
+class SaveMultiModel(tf.keras.callbacks.Callback):
+    def __init__(self, models, model_dir):
+        self.multi_models = models
+        self.model_dir = model_dir
+        super()
+    
+    def save_models(self, epoch)
+        for name, model in models:
+            model.save('{}/{}_{}.hdf5'.format(self.model_dir, name, epoch))
+    
+    def on_epoch_end(self, epoch, logs):
+        self.save_models(epoch)    
+        
+
 class GetCsvMetrics(tf.keras.callbacks.Callback):
     def __init__(self, forward, job_dir, log_compress = True, clipping = True,
                  test_csv='gs://duke-research-us/mimicknet/data/testing-v1.csv', 
@@ -442,7 +454,7 @@ class GetCsvMetrics(tf.keras.callbacks.Callback):
             self.writer.writerow(my_metrics)
             
     
-    def on_train_end(self, epoch, logs={}):
+    def on_train_end(self, logs={}):
         print('Running final validation metrics')
         self.full_validation()
         self.csv_filepath.flush()

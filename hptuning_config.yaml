@@ -20,6 +20,7 @@ trainingInput:
     - parameterName: clip
       type: DISCRETE
       discreteValues:
+      - 0
       - 1
     - parameterName: res
       type: DISCRETE

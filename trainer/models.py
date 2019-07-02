@@ -123,7 +123,6 @@ class PatchDiscriminatorModel(ModelBase):
         for filter_num in self.filters:
             x = self.Conv2D(filter_num)(x)
             x = self.Activation(x)
-            x = self.Dropout()(x)
             x = tf.keras.layers.MaxPool2D(padding=self.padding)(x)
         validity = tf.keras.layers.Conv2D(1, (self.shape[0]//(2**(len(self.filters)+1)), 
                                               self.shape[1]//(2**(len(self.filters)+1))), padding=self.padding)(x)
