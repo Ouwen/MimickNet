@@ -37,7 +37,7 @@ def main(argv):
     
     # Load Data
     
-    mimick_dataset = utils.MimickDataset(log_compress=args.lg_c, clipping=args.clip, image_dir=None)
+    mimick_dataset = utils.MimickDataset(log_compress=args.lg_c, clipping=args.clip, image_dir=args.image_dir)
     iq_dataset, iq_count = mimick_dataset.get_unpaired_ultrasound_dataset(
         domain='iq',
         csv='gs://duke-research-us/mimicknet/data/training_a.csv', 
@@ -136,6 +136,7 @@ def main(argv):
                                         ('rfd_bad', 'rfd_liver_highmi.uri_SpV10388_VpF168_FpA8_20160901073342_2.mat')
                                      ])
     get_csv = utils.GetCsvMetrics(g_AB, LOG_DIR)
+    download_data = utils.DownloadData(image_dir=args.image_dir)
     
     # Fit the model
     model.fit(iq_dataset, dtce_dataset,
@@ -143,7 +144,7 @@ def main(argv):
               epochs=args.epochs,
               validation_data=test_dataset,
               validation_steps=int(val_count/args.bs),
-              callbacks=[log_code, tensorboard, prog_bar, image_gen, get_csv, saving, save_multi_model, copy_keras])
+              callbacks=[download_data, log_code, tensorboard, prog_bar, image_gen, get_csv, saving, save_multi_model, copy_keras])
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -191,5 +192,6 @@ if __name__ == '__main__':
     
     # Cloud ML Params
     parser.add_argument('--job-dir', default='gs://duke-research-us/mimicknet/experiments/cyclegan_debug/{}'.format(str(time.time())), help='Job directory for Google Cloud ML')
-    
+    parser.add_argument('--image_dir', default=None, help='Local image directory')
+
     main(sys.argv)

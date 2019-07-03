@@ -1,6 +1,7 @@
 # MimickNet
 
 ![Alt Text](cardiac_cineloop.gif)
+
 From top to bottom, the above is a cineloop of the heart with no post-processing, clinical-grade post-processing, MimickNet post-processing, and the absolute difference between MimickNet and clinical-grade post-processing. 
 
 ### Training the model
