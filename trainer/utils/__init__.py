@@ -1,4 +1,4 @@
-from trainer.utils.dataset import MimickDataset
+from trainer.utils.dataset import MimickDataset, loadmat, make_shape, scan_convert
 from trainer.utils.callbacks import *
 from trainer.utils.losses import *
 
