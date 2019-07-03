@@ -1,5 +1,6 @@
 # MimickNet
-![cardiac cineloop](./examples/cardiac_cineloop.gif){width="200px"}
+<img src="./examples/cardiac_cineloop.gif" width="300">
+
 From top to bottom, the above is a cineloop of the heart with no post-processing, clinical-grade post-processing, MimickNet post-processing, and the absolute difference between MimickNet and clinical-grade post-processing. Histogram Matching is applied to raw beamformed data.
 
 ### Using the model
