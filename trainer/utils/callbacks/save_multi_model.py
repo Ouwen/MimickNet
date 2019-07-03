@@ -7,7 +7,7 @@ class SaveMultiModel(tf.keras.callbacks.Callback):
         super()
     
     def save_models(self, epoch):
-        for name, model in models:
+        for name, model in self.multi_models:
             model.save('{}/{}_{}.hdf5'.format(self.model_dir, name, epoch))
     
     def on_epoch_end(self, epoch, logs):
