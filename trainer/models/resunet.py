@@ -6,9 +6,11 @@ class ResUnetModel(ModelBase):
         super().__init__(**kwargs)
     
     def resblock(self, x, num_filters, first=False):
-        shortcut = tf.keras.layers.Conv2D(num_filters, kernel_size=(1, 1))(x)
-        shortcut = tf.keras.layers.BatchNormalization()(shortcut)
-        if not first:
+        if first:
+            shortcut = x
+        else:
+            shortcut = tf.keras.layers.Conv2D(num_filters, kernel_size=(1, 1))(x)
+            shortcut = tf.keras.layers.BatchNormalization()(shortcut)
             x = tf.keras.layers.BatchNormalization()(x)
             x = self.Activation(x)
         res_path = self.Conv2D(num_filters)(x)

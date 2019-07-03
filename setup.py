@@ -1,7 +1,7 @@
 from setuptools import find_packages
 from setuptools import setup
 
-REQUIRED_PACKAGES = ['pandas', 'scipy', 'polarTransform']
+REQUIRED_PACKAGES = ['pandas', 'scipy', 'polarTransform', 'numpy', 'tensorflow']
 
 setup(
     name='trainer',
