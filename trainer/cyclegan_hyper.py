@@ -164,31 +164,31 @@ if __name__ == '__main__':
     parser.add_argument('--lelu_a',   default=0.1, type=float, help='lelu alpha')
     
     # ModelType
-    parser.add_argument('--res',      default= False, type=bool, help='Enable residual learning')
-    parser.add_argument('--ps',       default= False, type=bool, help='Enable pixel shuffler upsampling')
+    parser.add_argument('--res',      default= True, type=bool, help='Enable residual learning')
+    parser.add_argument('--ps',       default= True, type=bool, help='Enable pixel shuffler upsampling')
     
     # Model Params
     parser.add_argument('--filter_case', help='Preset filter structure')
-    parser.add_argument('--f_h',      default= 7, type=int, help='filter height')
+    parser.add_argument('--f_h',      default= 3, type=int, help='filter height')
     parser.add_argument('--f_w',      default= 3, type=int, help='filter width')
-    parser.add_argument('--f1',       default= 4, type=int, help='filter 1')
-    parser.add_argument('--f2',       default= 4, type=int, help='filter 2')
-    parser.add_argument('--f3',       default= 4, type=int, help='filter 3')
-    parser.add_argument('--f4',       default= 4, type=int, help='filter 4')
-    parser.add_argument('--fbn',      default= 4, type=int, help='filter bottleneck')
+    parser.add_argument('--f1',       default= 16, type=int, help='filter 1')
+    parser.add_argument('--f2',       default= 16, type=int, help='filter 2')
+    parser.add_argument('--f3',       default= 16, type=int, help='filter 3')
+    parser.add_argument('--f4',       default= 16, type=int, help='filter 4')
+    parser.add_argument('--fbn',      default= 16, type=int, help='filter bottleneck')
 
     # Regularization
     parser.add_argument('--dr',       default= 0, type=float, help='dropout rate')
-    parser.add_argument('--l1',       default= 0, type=float, help='l1 regularization')
-    parser.add_argument('--l2',       default= 0, type=float, help='l2 regularization')
+    parser.add_argument('--l1',       default= 0.00015459984990412446, type=float, help='l1 regularization')
+    parser.add_argument('--l2',       default= 0.0017282253548896074, type=float, help='l2 regularization')
     
     # Optimization Params
     parser.add_argument('--cycle_lr', default=False, type=bool,  help='cycle learning rate')
     parser.add_argument('--lr',       default=0.001, type=float, help='learning_rate')
-    parser.add_argument('--l_ssim',   default=0, type=float, help='ssim loss')
-    parser.add_argument('--l_mae',    default=0, type=float, help='mae loss')
-    parser.add_argument('--l_mse',    default=1, type=float, help='mse loss')
-
+    parser.add_argument('--l_ssim',   default=0.841, type=float, help='ssim loss')
+    parser.add_argument('--l_mae',    default=0.512, type=float, help='mae loss')
+    parser.add_argument('--l_mse',    default=0.110, type=float, help='mse loss')
+    
     # Cloud ML Params
     parser.add_argument('--job-dir', default='gs://duke-research-us/mimicknet/experiments/cyclegan_debug/{}'.format(str(time.time())), help='Job directory for Google Cloud ML')
     

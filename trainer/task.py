@@ -1,18 +1,17 @@
 import tensorflow as tf
 import argparse
-from trainer import cycle_lr
 import sys
+import time
+
+from trainer import cycle_lr
 from trainer import utils
 from trainer import models
-import time
 
 def main(argv):
     args = parser.parse_args()
     LOG_DIR = args.job_dir
     MODEL_DIR = '.'
-    IMAGE_DIR = '/tmp/duke-data'
-    # utils.download_data(image_dir=IMAGE_DIR)
-    
+
     # Select activation function
     if args.actv == 'selu':
         Activation = tf.keras.layers.Activation(activation=tf.nn.selu)
