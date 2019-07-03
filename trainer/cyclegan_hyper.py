@@ -149,9 +149,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     # Input parser
-    parser.add_argument('--bs',       default= 8, type=int, help='batch size')
-    parser.add_argument('--in_h',     default= 512, type=int, help='image input size height')
-    parser.add_argument('--in_w',     default= 512, type=int, help='image input size width')
+    parser.add_argument('--bs',       default= 4, type=int, help='batch size')
+    parser.add_argument('--in_h',     default= 256, type=int, help='image input size height')
+    parser.add_argument('--in_w',     default= 128, type=int, help='image input size width')
     parser.add_argument('--epochs',   default= 100, type=int, help='number of epochs')
     parser.add_argument('--m',        default= True, type=bool, help='manual run or hp tuning')
     
