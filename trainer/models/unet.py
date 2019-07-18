@@ -30,10 +30,10 @@ class UnetModel(ModelBase):
             x = self.Upsample(filter_num)(x)
             x = tf.keras.layers.concatenate([x, downsample_path[idx]])
             x = self.Conv2D(filter_num)(x)
-            x = self.Activation(x)
+            x = tf.keras.layers.Activation(activation=tf.nn.relu)(x)
             x = self.Dropout()(x)
             x = self.Conv2D(filter_num)(x)
-            x = self.Activation(x)
+            x = tf.keras.layers.Activation(activation=tf.nn.relu)(x)
             x = self.Dropout()(x)
 
         x = tf.keras.layers.Conv2D(1, 1)(x)
