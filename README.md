@@ -3,11 +3,14 @@
 
 From top to bottom, the above is a cineloop of the heart with no post-processing, clinical-grade post-processing, MimickNet post-processing, and the absolute difference between MimickNet and clinical-grade post-processing. Histogram Matching is applied to raw beamformed data.
 
-### Using the model
-The model from the paper is provided as `mimicknet.h5`. We also provide a luminance adjusted version `mimicknet_luminance_adjusted.h5`.
+## Quick Start
+The model from the paper is provided as `mimicknet.h5`. We also provide a luminance adjusted version `mimicknet_luminance_adjusted.h5`, and a matlab compatible version `matlab_mimicknet_small_ladj.h5`.
+
 A notebook and sample data is provided under `examples` for use in the following environments:
- - python
- - matlab
+ - [`python`](https://github.com/Ouwen/MimickNet/blob/master/examples/python3_example.ipynb)
+ - [`matlab`](https://github.com/Ouwen/MimickNet/blob/master/examples/matlab_example.m)
+ 
+Dr. Mark Palmeri's liver and kidney images are avalible as test examples.
 
 ### Training the model
 The following repo was designed to be run in Google Cloud and makes use of GCS for logging.
