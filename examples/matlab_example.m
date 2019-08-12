@@ -36,9 +36,11 @@ title('Raw Beamformed');
 subplot(1,2,2);
 % 65 fps on Titan V for 300k pixels
 % 6.2 fps on 4 core cpu for 300k pixels
-tic
-imagesc(predict(net, norm_iq, 'ExecutionEnvironment', 'gpu'));
-toc
+for i = 1:4
+    tic
+    imagesc(predict(net, norm_iq, 'ExecutionEnvironment', 'gpu'));
+    toc
+end
 colormap gray;
 set(gca,'XColor', 'none','YColor','none')
 title('MimickNet');
