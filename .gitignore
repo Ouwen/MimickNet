@@ -1,0 +1,4 @@
+*.hdf5
+*.ipynb_checkpoints*
+*.pyc
+examples/secret
