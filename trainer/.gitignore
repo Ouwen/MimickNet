@@ -1,0 +1,4 @@
+data/duke-ultrasound-v1/
+*__pycache__
+*.ipynb_checkpoints
+logs*

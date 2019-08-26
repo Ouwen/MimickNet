@@ -1,82 +1,88 @@
 trainingInput:
+  scaleTier: BASIC_GPU
+  runtimeVersion: '1.13'
   hyperparameters:
     goal: MAXIMIZE
-    hyperparameterMetricTag: val_ssim_epoch
-    maxTrials: 100
+    hyperparameterMetricTag: epoch_val_ssim
+    maxTrials: 200
     maxParallelTrials: 10
+    maxFailedTrials: 100
+    enableTrialEarlyStopping: TRUE
     params:
-      - parameterName: lg_c
-        type: CATEGORICAL
-        discreteValues:
-        - False
-        - True
-      - parameterName: res
-        type: CATEGORICAL
-        categoricalValues:
-        - False
-        - True
-      - parameterName: ps
-        type: CATEGORICAL
-        discreteValues:
-        - False
-        - True
-      - parameterName: actv
-        type: CATEGORICAL
-        discreteValues:
-        - relu
-        - selu
-      - parameterName: f_h
-        type: INTEGER
-        minValue: 3
-        maxValue: 9
-        scaleType: UNIT_LINEAR_SCALE
-      - parameterName: f_w
-        type: INTEGER
-        minValue: 3
-        maxValue: 9
-        scaleType: UNIT_LINEAR_SCALE
-      - parameterName: f1
-        type: INTEGER
-        minValue: 8
-        maxValue: 64
-        scaleType: UNIT_LINEAR_SCALE
-      - parameterName: f2
-        type: INTEGER
-        minValue: 8
-        maxValue: 128
-        scaleType: UNIT_LINEAR_SCALE
-      - parameterName: f3
-        type: INTEGER
-        minValue: 8
-        maxValue: 256
-        scaleType: UNIT_LINEAR_SCALE
-      - parameterName: f4
-        type: INTEGER
-        minValue: 8
-        maxValue: 512
-        scaleType: UNIT_LINEAR_SCALE
-      - parameterName: fbn
-        type: INTEGER
-        minValue: 8
-        maxValue: 1024
-        scaleType: UNIT_LINEAR_SCALE
-      - parameterName: lr
-        type: DOUBLE
-        minValue: 0.00001
-        maxValue: 0.01
-        scaleType: UNIT_REVERSE_LOG_SCALE
-      - parameterName: l_ssim
-        type: DOUBLE
-        minValue: 0
-        maxValue: 1
-        scaleType: UNIT_LINEAR_SCALE
-      - parameterName: l_mae
-        type: DOUBLE
-        minValue: 0
-        maxValue: 1
-        scaleType: UNIT_LINEAR_SCALE
-      - parameterName: l_mse
-        type: DOUBLE
-        minValue: 0
-        maxValue: 1
-        scaleType: UNIT_LINEAR_SCALE
+    - parameterName: m
+      type: DISCRETE
+      discreteValues:
+      - 0
+    - parameterName: lg_c
+      type: DISCRETE
+      discreteValues:
+      - 1
+    - parameterName: clip
+      type: DISCRETE
+      discreteValues:
+      - 0
+      - 1
+    - parameterName: res
+      type: DISCRETE
+      discreteValues:
+      - 0
+      - 1
+    - parameterName: ps
+      type: DISCRETE
+      discreteValues:
+      - 0
+      - 1
+    - parameterName: cycle_lr
+      type: DISCRETE
+      discreteValues:
+      - 0
+    - parameterName: actv
+      type: CATEGORICAL
+      categoricalValues:
+      - relu
+      - selu
+      - lrelu
+    - parameterName: filter_case
+      type: CATEGORICAL
+      categoricalValues:
+      - hp_4
+      - hp_8
+      - hp_16
+      - hp_py_2
+      - hp_py_4
+      - hp_py_8
+    - parameterName: dr
+      type: DOUBLE
+      minValue: 0
+      maxValue: 0.5
+      scaleType: UNIT_LINEAR_SCALE
+    - parameterName: l_ssim
+      type: DOUBLE
+      minValue: 0
+      maxValue: 1
+      scaleType: UNIT_LINEAR_SCALE
+    - parameterName: l_mse
+      type: DOUBLE
+      minValue: 0
+      maxValue: 1
+      scaleType: UNIT_LINEAR_SCALE
+    - parameterName: l_mae
+      type: DOUBLE
+      minValue: 0
+      maxValue: 1
+      scaleType: UNIT_LINEAR_SCALE
+    - parameterName: lr
+      type: DOUBLE
+      minValue: 0.0002
+      maxValue: 0.02
+      scaleType: UNIT_LOG_SCALE
+    - parameterName: l1
+      type: DOUBLE
+      minValue: 0.00001
+      maxValue: 0.1
+      scaleType: UNIT_LOG_SCALE
+    - parameterName: l2
+      type: DOUBLE
+      minValue: 0.00001
+      maxValue: 0.1
+      scaleType: UNIT_LOG_SCALE
