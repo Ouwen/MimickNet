@@ -5,7 +5,7 @@ import polarTransform
 import pandas as pd
 
 class MimickDataset():
-    def __init__(self, log_compress=True, clipping = False,
+    def __init__(self, log_compress=True, clipping=-80,
                  image_dir=None, bucket_dir='gs://duke-research-us/mimicknet/data/duke-ultrasound-v1'):
         self.log_compress = log_compress
         self.clipping = clipping
@@ -24,9 +24,9 @@ class MimickDataset():
                 dtce = (dtce - dtce.min())/(dtce.max() - dtce.min())
                 
                 iq = np.abs(matfile['iq'])
-                if self.clipping:        
+                if self.clipping is not None:        
                     iq = 20*np.log10(iq/iq.max())
-                    iq = np.clip(iq, -80, 0)
+                    iq = np.clip(iq, self.clipping, 0)
                 elif self.log_compress:
                     iq = np.log10(iq)
                 iq = (iq-iq.min())/(iq.max() - iq.min())
@@ -131,14 +131,32 @@ def loadmat(filename):
     return _check_keys(data)
 
 
-def make_shape(image, shape=None, seed=0):
+def make_shape(image, shape=None, divisible=16, seed=0):
+    """Will reflection pad or crop to make an image divisible by a number.
+    
+    If shape is smaller than the original image, it will be cropped randomly
+    If shape is larger than the original image, it will be refection padded
+    If shape is None, the image's original shape will be minimally padded to be divisible by a number.
+    
+    Arguments:
+        image {np.array} -- np.array that is (height, width, channels)
+    
+    Keyword Arguments:
+        shape {tuple} -- shape of image desired (default: {None})
+        seed {number} -- random seed for random cropping (default: {0})
+        divisible {number} -- number to be divisible by (default: {16})
+    
+    Returns:
+        np.array, (int, int) -- divisible image no matter the shape, and a tuple of the original size.
+    """
+
     np.random.seed(seed=seed)
     image_height = image.shape[0]
     image_width = image.shape[1]
 
     shape = shape if shape is not None else image.shape
-    height = shape[0] if shape[0] % 16 == 0 else (16 - shape[0] % 16) + shape[0]
-    width = shape[1] if shape[1] % 16 == 0 else (16 - shape[1] % 16) + shape[1]
+    height = shape[0] if shape[0] % divisible == 0 else (divisible - shape[0] % divisible) + shape[0]
+    width = shape[1] if shape[1] % divisible == 0 else (divisible - shape[1] % divisible) + shape[1]
 
     # Pad data to batch height and width with reflections, and randomly crop
     if image_height < height:
