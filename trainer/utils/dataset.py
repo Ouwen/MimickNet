@@ -197,3 +197,4 @@ def scan_convert(image, acq_params):
         hasColor=False,
         order=3)
     return np.transpose(image[:, int(initial_radius):])
+    

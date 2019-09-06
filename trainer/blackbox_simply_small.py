@@ -4,6 +4,7 @@ import sys
 import time
 from trainer import utils
 from trainer import models
+from trainer import callbacks
 
 def main(argv):
     args = parser.parse_args()
@@ -76,10 +77,10 @@ def main(argv):
     # Generate Callbacks
     tensorboard = tf.keras.callbacks.TensorBoard(log_dir=LOG_DIR, write_graph=True, update_freq='epoch')
     prog_bar = tf.keras.callbacks.ProgbarLogger(count_mode='steps', stateful_metrics=None)
-    log_code = utils.LogCode(LOG_DIR, './trainer')
-    copy_keras = utils.CopyKerasModel(MODEL_DIR, LOG_DIR)
-    get_csv = utils.GetCsvMetrics(g_AB, LOG_DIR)    
-    save_multi_model = utils.SaveMultiModel([('g_AB', g_AB), ('g_BA', g_BA), ('d_A', d_A), ('d_B', d_B)], MODEL_DIR)
+    log_code = callbacks.LogCode(LOG_DIR, './trainer')
+    copy_keras = callbacks.CopyKerasModel(MODEL_DIR, LOG_DIR)
+    get_csv = callbacks.GetCsvMetrics(g_AB, LOG_DIR)    
+    save_multi_model = callbacks.SaveMultiModel([('g_AB', g_AB), ('g_BA', g_BA), ('d_A', d_A), ('d_B', d_B)], MODEL_DIR)
     saving = tf.keras.callbacks.ModelCheckpoint(MODEL_DIR + '/model.{epoch:02d}-{val_ssim:.10f}.hdf5', 
                                                 monitor='val_ssim', verbose=1, period=1, mode='max', save_best_only=True)
     
