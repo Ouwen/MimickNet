@@ -90,8 +90,8 @@ class CycleGAN:
     def _fit_init(self, dataset_a, dataset_b, batch_size, steps_per_epoch, epochs, validation_data, callbacks, verbose):
         """Initialize Callbacks and Datasets"""
         if not hasattr(self, 'dataset_next_a'):
-            self.dataset_next_a = iter(dataset_a)
-            self.dataset_next_b = iter(dataset_b)
+            self.dataset_a_next = iter(dataset_a)
+            self.dataset_b_next = iter(dataset_b)
             metric_names = ['d_loss', 'd_acc', 'g_loss', 'adv_loss', 'recon_loss', 'id_loss']
             metric_names.extend([metric.__name__ for metric in self.metrics])
 
@@ -151,7 +151,7 @@ class CycleGAN:
         self.log['recon_loss'] = np.mean(g_loss[3:5])
         self.log['id_loss'] = np.mean(g_loss[5:6])        
 
-    def fit(self, dataset_a, dataset_b, batch_size=8, steps_per_epoch=10, epochs=3, validation_data=None, verbose=0, validation_steps=10, 
+    def fit(self, dataset_a, dataset_b, batch_size=8, steps_per_epoch=10, epochs=3, validation_data=None, verbose=1, validation_steps=10, 
             callbacks=[]):
         self._fit_init(dataset_a, dataset_b, batch_size, steps_per_epoch, epochs, validation_data, callbacks, verbose)
         
@@ -160,7 +160,7 @@ class CycleGAN:
             for callback in callbacks: callback.on_epoch_begin(epoch, logs=self.log)
             for step in range(steps_per_epoch):
                 for callback in callbacks: callback.on_batch_begin(step, logs=self.log)
-                    self.train_step()                                
+                self.train_step()                                
                 for callback in callbacks: callback.on_batch_end(step, logs=self.log)
             
             if validation_data is not None:

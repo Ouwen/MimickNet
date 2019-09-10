@@ -12,24 +12,31 @@ def main(argv):
     MODEL_DIR = '.' # Directory to output models
     
     # Load Data (Build your custom data loader and replace below)
-    mimick_dataset = utils.MimickDataset(log_compress=True, clipping=True, image_dir=args.image_dir)
-    iq_dataset, iq_count = mimick_dataset.get_unpaired_ultrasound_dataset(
+    iq_dataset, iq_count = utils.MimickDataset(
+        clipping=(-80,0), 
+        image_dir=args.image_dir,
+        shape=(args.in_h, args.in_w)
+    ).get_unpaired_ultrasound_dataset(
         domain='iq',
         csv='./data/training_a.csv', 
-        batch_size=args.bs, 
-        shape=(args.in_h, args.in_w),
-        sc=False)
-    dtce_dataset, dtce_count = mimick_dataset.get_unpaired_ultrasound_dataset(
+        batch_size=args.bs)
+
+    dtce_dataset, dtce_count = utils.MimickDataset(
+        clipping=(-80,0), 
+        image_dir=args.image_dir,
+        shape=(args.in_h, args.in_w)
+    ).get_unpaired_ultrasound_dataset(
         domain='dtce',
         csv='./data/training_b.csv', 
-        batch_size=args.bs, 
-        shape=(args.in_h, args.in_w),
-        sc=False)
-    test_dataset, val_count = mimick_dataset.get_paired_ultrasound_dataset(
+        batch_size=args.bs)
+
+    test_dataset, val_count = utils.MimickDataset(
+        clipping=(-80,0), 
+        image_dir=args.image_dir,
+        shape=(args.in_h, args.in_w)
+    ).get_paired_ultrasound_dataset(
         csv='./data/testing-v1.csv', 
-        batch_size=args.bs,
-        shape=(args.in_h, args.in_w),
-        sc=False)
+        batch_size=1)
 
     # Select and Compile Model
     ModelClass = models.UnetModel
@@ -54,8 +61,7 @@ def main(argv):
                                          filters=[16, 32, 64, 128, 256],
                                          filter_shape=(3,3))()
     
-    model = models.CycleGAN(verbose = 1,
-                            shape = (None, None, 1),
+    model = models.CycleGAN(shape = (None, None, 1),
                             g_AB=g_AB,
                             g_BA=g_BA,
                             d_B=d_B,
@@ -82,11 +88,11 @@ def main(argv):
     get_csv = callbacks.GetCsvMetrics(g_AB, LOG_DIR)    
     save_multi_model = callbacks.SaveMultiModel([('g_AB', g_AB), ('g_BA', g_BA), ('d_A', d_A), ('d_B', d_B)], MODEL_DIR)
     saving = tf.keras.callbacks.ModelCheckpoint(MODEL_DIR + '/model.{epoch:02d}-{val_ssim:.10f}.hdf5', 
-                                                monitor='val_ssim', verbose=1, period=1, mode='max', save_best_only=True)
+                                                monitor='val_ssim', verbose=1, freq='epoch', mode='max', save_best_only=True)
     
     # Fit the model
     model.fit(iq_dataset, dtce_dataset,
-              steps_per_epoch=int(iq_count/args.bs),
+              steps_per_epoch=10,#int(iq_count/args.bs),
               epochs=args.epochs,
               validation_data=test_dataset,
               validation_steps=int(val_count/args.bs),

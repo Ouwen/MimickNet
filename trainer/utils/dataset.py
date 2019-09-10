@@ -3,74 +3,79 @@ import scipy.io as sio
 import numpy as np
 import polarTransform
 import pandas as pd
+from functools import partial
+
+DEFAULT_BUCKET_DIR = 'gs://duke-research-us/mimicknet/data/duke-ultrasound-v1'
 
 class MimickDataset():
-    def __init__(self, log_compress=True, clipping=-80,
-                 image_dir=None, bucket_dir='gs://duke-research-us/mimicknet/data/duke-ultrasound-v1'):
-        self.log_compress = log_compress
+    def __init__(self, clipping=(-80,0), divisible=16, sc=False, shape=None, image_dir=None, bucket_dir=DEFAULT_BUCKET_DIR):
+        self.image_dir = bucket_dir if image_dir is None else image_dir
         self.clipping = clipping
-        self.image_dir = image_dir
-        self.bucket_dir = bucket_dir
+        self.sc = sc
+        self.divisible = divisible
+        self.shape = shape
+        
+    def read_mat_op(self, filename):           
+        filepath = tf.io.gfile.GFile(filename.numpy(), 'rb')
+        matfile = sio.loadmat(filepath) if not self.sc else loadmat(filepath)
 
-    def read_mat_generator(self, shape=None, sc=False):
-        def read_mat_op(filename):           
-            def _read_mat(filename, shape=shape):
-                if self.image_dir is not None:
-                    filepath = '{}/{}'.format(self.image_dir, str(filename.numpy(), 'utf-8'))
-                else:
-                    filepath = tf.gfile.Open('{}/{}'.format(self.bucket_dir, str(filename.numpy(), 'utf-8')), 'rb')
-                matfile = sio.loadmat(filepath) if not scan_convert else loadmat(filepath)
-                dtce = matfile['dtce']
-                dtce = (dtce - dtce.min())/(dtce.max() - dtce.min())
-                
-                iq = np.abs(matfile['iq'])
-                if self.clipping is not None:        
-                    iq = 20*np.log10(iq/iq.max())
-                    iq = np.clip(iq, self.clipping, 0)
-                elif self.log_compress:
-                    iq = np.log10(iq)
-                iq = (iq-iq.min())/(iq.max() - iq.min())
+        # normalize dtce to [0, 1]
+        dtce = matfile['dtce']
+        dtce = (dtce - dtce.min())/(dtce.max() - dtce.min())
 
-                if sc:
-                    iq = scan_convert(iq, matfile['acq_params'])
-                    dtce = scan_convert(dtce, matfile['acq_params'])
-                    
-                seed = np.random.randint(0, 2147483647)
-                iq, _ = make_shape(iq, shape=shape, seed=seed)
-                dtce, _ = make_shape(dtce, shape=shape, seed=seed)  
-                return iq.astype('float32'), dtce.astype('float32'), iq.shape
-                        
-            output = tf.py_function(_read_mat, [filename], [tf.float32, tf.float32, tf.int64])
-            output_shape = shape + (1,) if shape is not None else tf.concat([output[2], [1]], axis=0)
-            iq = tf.reshape(output[0], output_shape)
-            dtce = tf.reshape(output[1], output_shape)
-            return iq, dtce
-        return read_mat_op
+        # signal detect, clip, and normalize
+        iq = np.abs(matfile['iq'])
+        if self.clipping is not None:        
+            iq = 20*np.log10(iq/iq.max())
+            iq = np.clip(iq, self.clipping[0], self.clipping[1])
+        elif self.log_compress: 
+            iq = np.log10(iq)
+        iq = (iq-iq.min())/(iq.max() - iq.min())
 
-    def get_dataset(self, csv, shape=None, sc=False):
-        filepath = tf.gfile.Open(csv, 'rb')
-        filelist = list(pd.read_csv(filepath)['filename'])
+        # scan convert TODO (this process is heavy so it should be preprocessed)
+        if self.sc:
+            iq = scan_convert(iq, matfile['acq_params'])
+            dtce = scan_convert(dtce, matfile['acq_params'])
+
+        seed = np.random.randint(0, 2147483647)
+        iq, _ = make_shape(iq, shape=self.shape, divisible=self.divisible, seed=seed)
+        dtce, _ = make_shape(dtce, shape=self.shape, divisible=self.divisible, seed=seed)  
+        return iq.astype('float32'), dtce.astype('float32')
+    
+    def reshape(iq, dtce, shape):
+        output_shape = tf.concat([shape, [1]], axis=0)
+        iq = tf.reshape(iq, output_shape)
+        dtce = tf.reshape(dtce, output_shape)
+        return iq, dtce
+
+    def get_dataset(self, csv):
+        filepath = tf.io.gfile.GFile(csv, 'rb')
+        filelist = pd.read_csv(filepath)
+        filelist['filename'] = filelist['filename'].apply(lambda x: '{}/{}'.format(self.image_dir, x))
+        filelist = list(filelist['filename'])
         count = len(filelist)
+        
         dataset = tf.data.Dataset.from_tensor_slices(filelist)
         dataset = dataset.shuffle(count).repeat()
-        dataset = dataset.map(self.read_mat_generator(shape=shape, sc=sc), num_parallel_calls=tf.data.experimental.AUTOTUNE)
+        dataset = dataset.map(lambda x: tf.py_function(self.read_mat_op, [x], [tf.float32, tf.float32]), 
+                              num_parallel_calls=tf.data.experimental.AUTOTUNE)
         return dataset, count
 
-    def get_paired_ultrasound_dataset(self, csv='gs://duke-research-us/mimicknet/data/training-v1.csv', batch_size=16, shape=(512, 64), sc=False):
-        dataset, count = self.get_dataset(csv, shape=shape, sc=sc)
+    def get_paired_ultrasound_dataset(self, csv='gs://duke-research-us/mimicknet/data/training-v1.csv', batch_size=16):
+        dataset, count = self.get_dataset(csv)
         dataset = dataset.batch(batch_size)
         dataset = dataset.prefetch(batch_size)
         return dataset, count
 
-    def get_unpaired_ultrasound_dataset(self, domain, csv=None, shape=(512, 64), batch_size=16, sc=False):
+    def get_unpaired_ultrasound_dataset(self, domain, csv=None, batch_size=16):
         if domain == 'iq':
-            csv = './data/training_a.csv' if csv is None else csv
-            dataset, count = self.get_dataset(csv, shape=shape, sc=sc)
+            csv = 'gs://duke-research-us/mimicknet/data/training_a.csv' if csv is None else csv
+            dataset, count = self.get_dataset(csv)
             dataset = dataset.map(lambda iq, dtce: iq)
         
         elif domain == 'dtce':
-            csv = './data/training_b.csv' if csv is None else csv
-            dataset, count = self.get_dataset(csv, shape=shape, sc=sc)
+            csv = 'gs://duke-research-us/mimicknet/data/training_b.csv' if csv is None else csv
+            dataset, count = self.get_dataset(csv)
             dataset = dataset.map(lambda iq, dtce: dtce)
         else:
             raise Exception('domain must be "iq" or "dtce", given {}'.format(domain))
@@ -78,7 +83,6 @@ class MimickDataset():
         dataset = dataset.batch(batch_size).prefetch(batch_size)
         return dataset, count
     
-
 
 def loadmat(filename):
     '''
@@ -180,6 +184,8 @@ def make_shape(image, shape=None, divisible=16, seed=0):
     elif image_width > width:
         start = np.random.randint(0, image_width - width)
         image = image[:, start:start+width]
+    image = image[:,:, None]
+    
     return image, (image_height, image_width)
 
 def scan_convert(image, acq_params):
