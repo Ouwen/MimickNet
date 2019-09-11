@@ -42,11 +42,6 @@ class MimickDataset():
         dtce, _ = make_shape(dtce, shape=self.shape, divisible=self.divisible, seed=seed)  
         return iq.astype('float32'), dtce.astype('float32')
     
-    def reshape(iq, dtce, shape):
-        output_shape = tf.concat([shape, [1]], axis=0)
-        iq = tf.reshape(iq, output_shape)
-        dtce = tf.reshape(dtce, output_shape)
-        return iq, dtce
 
     def get_dataset(self, csv):
         filepath = tf.io.gfile.GFile(csv, 'rb')
@@ -69,12 +64,12 @@ class MimickDataset():
 
     def get_unpaired_ultrasound_dataset(self, domain, csv=None, batch_size=16):
         if domain == 'iq':
-            csv = 'gs://duke-research-us/mimicknet/data/training_a.csv' if csv is None else csv
+            csv = 'gs://duke-research-us/mimicknet/data/training_a-v1.csv' if csv is None else csv
             dataset, count = self.get_dataset(csv)
             dataset = dataset.map(lambda iq, dtce: iq)
         
         elif domain == 'dtce':
-            csv = 'gs://duke-research-us/mimicknet/data/training_b.csv' if csv is None else csv
+            csv = 'gs://duke-research-us/mimicknet/data/training_b-v1.csv' if csv is None else csv
             dataset, count = self.get_dataset(csv)
             dataset = dataset.map(lambda iq, dtce: dtce)
         else:

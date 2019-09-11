@@ -59,7 +59,7 @@ class CycleGAN:
                               optimizer=self.optimizer)
         
 
-    def validate(self, validation_steps):
+    def validate(self, validation_steps):        
         metrics_summary = {}
         for metric in self.metrics:
             metrics_summary[metric.__name__] = []
@@ -70,16 +70,8 @@ class CycleGAN:
             fake_B = self.g_AB.predict(val_batch[0])
             
             for metric in self.metrics:
-                metrics_summary[metric.__name__].append(metric(image, fake_B).numpy())                        
-            forward_metrics = self.metrics_session.run(self.output_metrics, feed_dict={
-                self.val_batch_placeholder: B_batch,
-                self.val_fake_placeholder: fake_B
-            })
-            
-            for key, value in forward_metrics.items():
-                if key not in metrics_summary:
-                    metrics_summary[key] = []
-                metrics_summary[key].append(value)
+                metric_output = metric(tf.constant(B_batch), tf.constant(fake_B)).numpy()
+                metrics_summary[metric.__name__].append(metric_output[0])                        
         
         # average all metrics
         for key, value in metrics_summary.items():
@@ -149,7 +141,7 @@ class CycleGAN:
         self.log['g_loss'] = g_loss[0]
         self.log['adv_loss'] = np.mean(g_loss[1:3])
         self.log['recon_loss'] = np.mean(g_loss[3:5])
-        self.log['id_loss'] = np.mean(g_loss[5:6])        
+        self.log['id_loss'] = np.mean(g_loss[5:6])
 
     def fit(self, dataset_a, dataset_b, batch_size=8, steps_per_epoch=10, epochs=3, validation_data=None, verbose=1, validation_steps=10, 
             callbacks=[]):
