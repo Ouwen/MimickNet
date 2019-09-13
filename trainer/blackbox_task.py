@@ -1,7 +1,5 @@
 import tensorflow as tf
 import argparse
-import sys
-import time
 from trainer import utils
 from trainer import models
 from trainer import callbacks
@@ -71,6 +69,7 @@ test_dataset, test_count = utils.MimickDataset(
     clipping=(config.clipping,0)
 ).get_paired_ultrasound_dataset(csv=config.test_csv, batch_size=1)
 
+if config.is_test: test_count, iq_count, val_count, config.bs = 1,1,1,1
 
 # Select and Compile Model
 ModelClass = models.UnetModel
@@ -142,4 +141,3 @@ model.fit(iq_dataset, dtce_dataset,
           validation_steps=int(val_count/config.bs),
           callbacks=[log_code, reduce_lr, tensorboard, prog_bar, image_gen, saving, 
                      copy_keras, start_tensorboard, get_csv_metrics, early_stopping])
-
