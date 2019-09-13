@@ -4,6 +4,7 @@ import tensorflow as tf
 import numpy as np
 from skimage.transform import match_histograms
 from trainer import utils
+
 from multiprocessing import Pool
 
 _FIELDNAMES = ['filename', 'mse', 'mae', 'ssim', 'contrast_structure', 'luminance', 'psnr',

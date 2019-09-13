@@ -8,3 +8,6 @@ def combined_loss(l_ssim=0.8, l_mae=0.1, l_mse=0.1):
     def _combined_loss(y_true, y_pred):
         return l_ssim*ssim_loss(y_true, y_pred) + l_mae*tf.abs(y_true - y_pred) +  l_mse*tf.square(y_true - y_pred)
     return _combined_loss
+
+def mse(x, y): return tf.reshape(tf.math.reduce_mean(tf.math.square((x - y))), [-1])
+def mae(x, y): return tf.reshape(tf.math.reduce_mean(tf.math.abs((x - y))), [-1])

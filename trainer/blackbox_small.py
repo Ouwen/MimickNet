@@ -81,7 +81,7 @@ def main(argv):
                      10, 10,
                      1,  1
                   ],
-                  metrics=[utils.ssim, utils.psnr])
+                  metrics=[utils.ssim, utils.psnr, utils.mae, utils.mse])
     
     # Generate Callbacks
     tensorboard = tf.keras.callbacks.TensorBoard(log_dir=LOG_DIR, write_graph=True, update_freq='epoch')
