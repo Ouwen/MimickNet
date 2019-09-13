@@ -11,8 +11,8 @@ class CycleGAN:
         self.d_B = d_B
         self.g_AB = g_AB
         self.g_BA = g_BA
-
-    def compile(self, optimizer=tf.keras.optimizers.Adam(0.00002, 0.5), metrics=[], d_loss='mse',
+        
+    def compile(self, optimizer=tf.keras.optimizers.Adam(0.0002, 0.5), metrics=[], d_loss='mse',
                 g_loss = [
                     'mse', 'mse', 
                     'mae', 'mae', 
@@ -80,10 +80,12 @@ class CycleGAN:
     
     def _fit_init(self, dataset_a, dataset_b, batch_size, steps_per_epoch, epochs, validation_data, callbacks, verbose):
         """Initialize Callbacks and Datasets"""
+        self.stop_training = False # Flag for early stopping
+
         if not hasattr(self, 'dataset_next_a'):
             self.dataset_a_next = iter(dataset_a)
             self.dataset_b_next = iter(dataset_b)
-            metric_names = ['d_loss', 'd_acc', 'g_loss', 'adv_loss', 'recon_loss', 'id_loss']
+            metric_names = ['d_loss', 'd_acc', 'g_loss', 'adv_loss', 'recon_loss', 'id_loss', 'lr']
             metric_names.extend([metric.__name__ for metric in self.metrics])
 
         if not hasattr(self, 'dataset_val_next') and validation_data is not None:
@@ -141,9 +143,9 @@ class CycleGAN:
     def fit(self, dataset_a, dataset_b, batch_size=8, steps_per_epoch=10, epochs=3, validation_data=None, verbose=1, validation_steps=10, 
             callbacks=[]):
         self._fit_init(dataset_a, dataset_b, batch_size, steps_per_epoch, epochs, validation_data, callbacks, verbose)
-        
         for callback in callbacks: callback.on_train_begin(logs=self.log)
         for epoch in range(epochs):
+#             if self.stop_training: break
             for callback in callbacks: callback.on_epoch_begin(epoch, logs=self.log)
             for step in range(steps_per_epoch):
                 for callback in callbacks: callback.on_batch_begin(step, logs=self.log)

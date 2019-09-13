@@ -45,32 +45,37 @@ def main(argv):
     # Select and Compile Model
     ModelClass = models.UnetModel
     g_AB = ModelClass(shape=(None, None, 1),
-                      Activation=tf.keras.layers.LeakyReLU(0.1),
+                      Activation=tf.keras.layers.LeakyReLU(0.2),
                       filters=[16, 16, 16, 16, 16],
                       filter_shape=(7, 3))()
 
     g_BA = ModelClass(shape=(None, None, 1),
-                      Activation=tf.keras.layers.LeakyReLU(0.1),
+                      Activation=tf.keras.layers.LeakyReLU(0.2),
                       filters=[16, 16, 16, 16, 16],
                       filter_shape=(7, 3))()
 
     d_A = models.PatchDiscriminatorModel(shape=(args.in_h, args.in_w, 1),
-                                         Activation=tf.keras.layers.LeakyReLU(0.1),
+                                         Activation=tf.keras.layers.LeakyReLU(0.2),
                                          filters=[32, 64, 128, 256, 512],
                                          filter_shape=(3,3))()
 
     d_B = models.PatchDiscriminatorModel(shape=(args.in_h, args.in_w, 1),
-                                         Activation=tf.keras.layers.LeakyReLU(0.1),
+                                         Activation=tf.keras.layers.LeakyReLU(0.2),
                                          filters=[32, 64, 128, 256, 512],
                                          filter_shape=(3,3))()
     
+    g_AB.load_weights('{}/{}-g_AB.hdf5'.format(MODEL_DIR, 'model.02-0.8907387257'))
+    g_BA.load_weights('{}/{}-g_BA.hdf5'.format(MODEL_DIR, 'model.02-0.8907387257'))
+    d_A.load_weights('{}/{}-d_A.hdf5'.format(MODEL_DIR, 'model.02-0.8907387257'))
+    d_B.load_weights('{}/{}-d_B.hdf5'.format(MODEL_DIR, 'model.02-0.8907387257'))
+
     model = models.CycleGAN(shape = (None, None, 1),
                             g_AB=g_AB,
                             g_BA=g_BA,
                             d_B=d_B,
                             d_A=d_A)
 
-    model.compile(optimizer=tf.keras.optimizers.Adam(0.00002, 0.5),
+    model.compile(optimizer=tf.keras.optimizers.Adam(0.0002, 0.5),
                   d_loss='mse',
                   g_loss = [
                      'mse', 'mse',
@@ -90,11 +95,19 @@ def main(argv):
     prog_bar = tf.keras.callbacks.ProgbarLogger(count_mode='steps', stateful_metrics=None)
     log_code = callbacks.LogCode(LOG_DIR, './trainer')
     copy_keras = callbacks.CopyKerasModel(MODEL_DIR, LOG_DIR)
-    save_multi_model = callbacks.SaveMultiModel([('g_AB', g_AB), ('g_BA', g_BA), ('d_A', d_A), ('d_B', d_B)], MODEL_DIR)
-    saving = tf.keras.callbacks.ModelCheckpoint(MODEL_DIR + '/model.{epoch:02d}-{val_ssim:.10f}.hdf5', 
-                                                monitor='val_ssim', verbose=1, freq='epoch', mode='max', save_best_only=False)
+    
+    saving = callbacks.MultiModelCheckpoint(MODEL_DIR + '/model.{epoch:02d}-{val_ssim:.10f}.hdf5',
+                                            monitor='val_ssim', verbose=1, freq='epoch', mode='max', save_best_only=True,
+                                            multi_models=[('g_AB', g_AB), ('g_BA', g_BA), ('d_A', d_A), ('d_B', d_B)])
+    
+    reduce_lr = callbacks.MultiReduceLROnPlateau(training_models=[model.d_A, model.d_B, model.combined], 
+                                                 monitor='val_ssim', mode='max', factor=1e-1, patience=1)
+    early_stopping = callbacks.MultiEarlyStopping(multi_models=[g_AB, g_BA, d_A, d_B], full_model=model,
+                                                  monitor='val_ssim', mode='max', patience=1, 
+                                                  restore_best_weights=True, verbose=1)
+    
     image_gen = callbacks.GenerateImages(g_AB, validation_dataset, LOG_DIR, interval=int(iq_count/args.bs))
-    get_csv_metrics = callbacks.GetCsvMetrics(model, test_dataset, args.job_dir, count=test_count)
+    get_csv_metrics = callbacks.GetCsvMetrics(g_AB, test_dataset, LOG_DIR, count=test_count)
     
     # Fit the model
     model.fit(iq_dataset, dtce_dataset,
@@ -102,7 +115,8 @@ def main(argv):
               epochs=args.epochs,
               validation_data=validation_dataset,
               validation_steps=int(val_count/args.bs),
-              callbacks=[log_code, tensorboard, prog_bar, image_gen, saving, save_multi_model, copy_keras, start_tensorboard, get_csv_metrics])
+              callbacks=[log_code, reduce_lr, tensorboard, prog_bar, image_gen, saving, 
+                         copy_keras, start_tensorboard, get_csv_metrics, early_stopping])
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
