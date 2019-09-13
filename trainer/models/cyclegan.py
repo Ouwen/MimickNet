@@ -2,7 +2,7 @@ import tensorflow as tf
 import numpy as np
 
 class CycleGAN:   
-    def __init__(self, g_AB=None, g_BA=None, d_B=None, d_A=None, patch_gan_hw=2**5, shape = (None, None, 1)):
+    def __init__(self, g_AB=None, g_BA=None, d_B=None, d_A=None, shape = (None, None, 1)):
         self.shape = shape
 
         if d_A is None or d_B is None or g_AB is None or g_BA is None:
@@ -11,7 +11,6 @@ class CycleGAN:
         self.d_B = d_B
         self.g_AB = g_AB
         self.g_BA = g_BA
-        self.patch_gan_hw = patch_gan_hw
 
     def compile(self, optimizer=tf.keras.optimizers.Adam(0.00002, 0.5), metrics=[], d_loss='mse',
                 g_loss = [
@@ -108,11 +107,7 @@ class CycleGAN:
         a_batch = next(self.dataset_a_next)
         b_batch = next(self.dataset_b_next)
         
-        self.patch_gan_size = (a_batch.shape[0],
-                               a_batch.shape[1]//self.patch_gan_hw, 
-                               a_batch.shape[2]//self.patch_gan_hw, 
-                               a_batch.shape[3])
-
+        self.patch_gan_size = (a_batch.shape[0],) + self.d_A.get_output_shape_at(0)[1:]
         self.valid = np.ones(self.patch_gan_size)
         self.fake = np.zeros(self.patch_gan_size)
         

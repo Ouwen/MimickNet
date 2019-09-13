@@ -8,16 +8,17 @@ from functools import partial
 DEFAULT_BUCKET_DIR = 'gs://duke-research-us/mimicknet/data/duke-ultrasound-v1'
 
 class MimickDataset():
-    def __init__(self, clipping=(-80,0), divisible=16, sc=False, shape=None, image_dir=None, bucket_dir=DEFAULT_BUCKET_DIR):
+    def __init__(self, clipping=(-80,0), divisible=16, sc=False, shape=None, image_dir=None, repeat=None, bucket_dir=DEFAULT_BUCKET_DIR):
         self.image_dir = bucket_dir if image_dir is None else image_dir
         self.clipping = clipping
         self.sc = sc
         self.divisible = divisible
         self.shape = shape
+        self.repeat = None
         
-    def read_mat_op(self, filename):           
-        filepath = tf.io.gfile.GFile(filename.numpy(), 'rb')
-        matfile = sio.loadmat(filepath) if not self.sc else loadmat(filepath)
+    def read_mat_op(self, filename, irad, frad, iang, fang):           
+        filepath = tf.io.gfile.GFile('{}/{}'.format(self.image_dir, filename.numpy().decode()), 'rb')
+        matfile = sio.loadmat(filepath)
 
         # normalize dtce to [0, 1]
         dtce = matfile['dtce']
@@ -32,28 +33,25 @@ class MimickDataset():
             iq = np.log10(iq)
         iq = (iq-iq.min())/(iq.max() - iq.min())
 
-        # scan convert TODO (this process is heavy so it should be preprocessed)
-        if self.sc:
-            iq = scan_convert(iq, matfile['acq_params'])
-            dtce = scan_convert(dtce, matfile['acq_params'])
+        if self.sc: # scan convert TODO (this process is heavy so it should be preprocessed)
+            iq = scan_convert(iq, irad.numpy(), frad.numpy(), iang.numpy(), fang.numpy())
+            dtce = scan_convert(dtce, irad.numpy(), frad.numpy(), iang.numpy(), fang.numpy())
 
         seed = np.random.randint(0, 2147483647)
         iq, _ = make_shape(iq, shape=self.shape, divisible=self.divisible, seed=seed)
         dtce, _ = make_shape(dtce, shape=self.shape, divisible=self.divisible, seed=seed)  
         return iq.astype('float32'), dtce.astype('float32')
     
-
     def get_dataset(self, csv):
-        filepath = tf.io.gfile.GFile(csv, 'rb')
-        filelist = pd.read_csv(filepath)
-        filelist['filename'] = filelist['filename'].apply(lambda x: '{}/{}'.format(self.image_dir, x))
-        filelist = list(filelist['filename'])
-        count = len(filelist)
-        
-        dataset = tf.data.Dataset.from_tensor_slices(filelist)
-        dataset = dataset.shuffle(count).repeat()
-        dataset = dataset.map(lambda x: tf.py_function(self.read_mat_op, [x], [tf.float32, tf.float32]), 
+        count = len(pd.read_csv(tf.io.gfile.GFile(csv, 'rb')))        
+        dataset = tf.data.experimental.make_csv_dataset(csv, shuffle=False, batch_size=1).unbatch()
+        dataset = dataset.shuffle(count).repeat(self.repeat)
+        images  = dataset.map(lambda x: tf.py_function(self.read_mat_op, [x['filename'], 
+                                                                          x['initial_radius'], x['final_radius'], 
+                                                                          x['initial_angle'], x['final_angle']], [tf.float32, tf.float32]), 
                               num_parallel_calls=tf.data.experimental.AUTOTUNE)
+        dataset = tf.data.Dataset.zip((images, dataset))
+        dataset = dataset.map(lambda x, y: (x[0], x[1], y))
         return dataset, count
 
     def get_paired_ultrasound_dataset(self, csv='gs://duke-research-us/mimicknet/data/training-v1.csv', batch_size=16):
@@ -66,69 +64,18 @@ class MimickDataset():
         if domain == 'iq':
             csv = 'gs://duke-research-us/mimicknet/data/training_a-v1.csv' if csv is None else csv
             dataset, count = self.get_dataset(csv)
-            dataset = dataset.map(lambda iq, dtce: iq)
+            dataset = dataset.map(lambda iq, dtce, params: (iq, params))
         
         elif domain == 'dtce':
             csv = 'gs://duke-research-us/mimicknet/data/training_b-v1.csv' if csv is None else csv
             dataset, count = self.get_dataset(csv)
-            dataset = dataset.map(lambda iq, dtce: dtce)
+            dataset = dataset.map(lambda iq, dtce, params: (dtce, params))
         else:
             raise Exception('domain must be "iq" or "dtce", given {}'.format(domain))
         
         dataset = dataset.batch(batch_size).prefetch(batch_size)
         return dataset, count
     
-
-def loadmat(filename):
-    '''
-    this function should be called instead of direct sio.loadmat
-    as it cures the problem of not properly recovering python dictionaries
-    from mat files. It calls the function check keys to cure all entries
-    which are still mat-objects
-    '''
-    def _check_keys(d):
-        '''
-        checks if entries in dictionary are mat-objects. If yes
-        todict is called to change them to nested dictionaries
-        '''
-        for key in d:
-            if isinstance(d[key], sio.matlab.mio5_params.mat_struct):
-                d[key] = _todict(d[key])
-        return d
-
-    def _todict(matobj):
-        '''
-        A recursive function which constructs from matobjects nested dictionaries
-        '''
-        d = {}
-        for strg in matobj._fieldnames:
-            elem = matobj.__dict__[strg]
-            if isinstance(elem, sio.matlab.mio5_params.mat_struct):
-                d[strg] = _todict(elem)
-            elif isinstance(elem, np.ndarray):
-                d[strg] = _tolist(elem)
-            else:
-                d[strg] = elem
-        return d
-
-    def _tolist(ndarray):
-        '''
-        A recursive function which constructs lists from cellarrays
-        (which are loaded as numpy ndarrays), recursing into the elements
-        if they contain matobjects.
-        '''
-        elem_list = []
-        for sub_elem in ndarray:
-            if isinstance(sub_elem, sio.matlab.mio5_params.mat_struct):
-                elem_list.append(_todict(sub_elem))
-            elif isinstance(sub_elem, np.ndarray):
-                elem_list.append(_tolist(sub_elem))
-            else:
-                elem_list.append(sub_elem)
-        return elem_list
-    data = sio.loadmat(filename, struct_as_record=False, squeeze_me=True)
-    return _check_keys(data)
-
 
 def make_shape(image, shape=None, divisible=16, seed=0):
     """Will reflection pad or crop to make an image divisible by a number.
@@ -183,19 +130,14 @@ def make_shape(image, shape=None, divisible=16, seed=0):
     
     return image, (image_height, image_width)
 
-def scan_convert(image, acq_params):
-    # Takes an image (r, theta), and acq_params dictionary
-    r = acq_params['r']
-    apex = acq_params['apex'] if 'apex' in acq_params else acq_params['apex_coordinates'][2]
-    theta = acq_params['theta']
-    initial_radius = abs((r[0] - apex)/(r[1]-r[0]))
+def scan_convert(image, irad, frad, iang, fang):
     image, _ = polarTransform.convertToCartesianImage(
         np.transpose(image),
-        initialRadius=initial_radius,
-        finalRadius=initial_radius+image.shape[0],
-        initialAngle=theta[0],
-        finalAngle=theta[-1],
+        initialRadius=irad,
+        finalRadius=frad,
+        initialAngle=iang,
+        finalAngle=fang,
         hasColor=False,
         order=3)
-    return np.transpose(image[:, int(initial_radius):])
+    return np.transpose(image[:, int(irad):])
     

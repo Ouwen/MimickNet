@@ -1,5 +1,6 @@
-from trainer.utils.dataset import MimickDataset, loadmat, make_shape, scan_convert
+from trainer.utils.dataset import MimickDataset, make_shape, scan_convert
 from trainer.utils.losses import *
+from trainer.utils.custom_ssim import *
 
 def mat2model(matfile_path, log_compress=True, clipping=False):
     matfile = sio.loadmat(matfile_path)

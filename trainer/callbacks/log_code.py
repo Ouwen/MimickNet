@@ -7,10 +7,11 @@ import os
 
 class LogCode(tf.keras.callbacks.Callback):
     def __init__(self, log_dir, code_dir):
-        super()
+        super().__init__()
         self.code_dir = code_dir
         self.log_dir = log_dir
-        
+        self.started = False
+
     def make_tarfile(self, log_dir, code_dir):
         def exclude_function(filename):
             return True if filename.endswith('.pyc') else False
@@ -23,8 +24,10 @@ class LogCode(tf.keras.callbacks.Callback):
                 of.write(input_f.read())
         os.remove(filepath)
 
-    def on_train_begin(self, logs={}):
-        self.make_tarfile(self.log_dir, self.code_dir)
+    def on_epoch_end(self, *args, **kwargs):
+        if not self.started:
+            self.make_tarfile(self.log_dir, self.code_dir)
+            self.started = True
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
