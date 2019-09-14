@@ -125,7 +125,7 @@ saving = callbacks.MultiModelCheckpoint(MODEL_DIR + '/model.{epoch:02d}-{val_ssi
                                         multi_models=[('g_AB', g_AB), ('g_BA', g_BA), ('d_A', d_A), ('d_B', d_B)])
 
 reduce_lr = callbacks.MultiReduceLROnPlateau(training_models=[model.d_A, model.d_B, model.combined], 
-                                             monitor='val_ssim', mode='max', factor=0.5, patience=1, min_lr=0.000002)
+                                             monitor='val_ssim', mode='max', factor=0.5, patience=3, min_lr=0.000002)
 early_stopping = callbacks.MultiEarlyStopping(multi_models=[g_AB, g_BA, d_A, d_B], full_model=model,
                                               monitor='val_ssim', mode='max', patience=1, 
                                               restore_best_weights=True, verbose=1)
