@@ -20,8 +20,8 @@ if __name__ == '__main__':
     parser.add_argument('--test_csv', help='csv for testing')
     
     # Modeling parser
-    parser.add_argument('--clipping', help='DAS dB clipping')
-    parser.add_argument('--kernel_height', help='height of convolution kernel')
+    parser.add_argument('--clipping', type=float, help='DAS dB clipping')
+    parser.add_argument('--kernel_height', type=int, help='height of convolution kernel')
     
     # Cloud ML Params
     parser.add_argument('--job-dir', help='Job directory for Google Cloud ML')
