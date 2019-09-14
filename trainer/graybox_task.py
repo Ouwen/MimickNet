@@ -53,7 +53,8 @@ test_dataset, test_count = utils.MimickDataset(
     clipping=(config.clipping,0)
 ).get_paired_ultrasound_dataset(csv=config.test_csv, batch_size=1)
 
-if config.is_test: test_count, train_count, val_count, config.bs = 1,1,1,1
+if config.is_test:
+    test_count, train_count, val_count, config.bs = 1,1,1,1
     
 ModelClass = models.UnetModel
 model = ModelClass(shape=(None, None, 1),
@@ -67,7 +68,7 @@ model.compile(optimizer=tf.keras.optimizers.Adam(0.002), loss='mae', metrics=[ut
 tensorboard = tf.keras.callbacks.TensorBoard(log_dir=LOG_DIR, write_graph=True, update_freq='epoch')
 copy_keras = callbacks.CopyKerasModel(MODEL_DIR, LOG_DIR)
 saving = tf.keras.callbacks.ModelCheckpoint(MODEL_DIR + '/model.{epoch:02d}-{val_ssim:.10f}.hdf5', 
-                                            monitor='val_ssim', verbose=1, period=1, mode='max', save_best_only=True)
+                                            monitor='val_ssim', verbose=1, save_freq='epoch', mode='max', save_best_only=True)
 
 early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=3, verbose=1)
 reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=2, min_lr=0.002*.001)

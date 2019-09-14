@@ -17,4 +17,4 @@ COPY trainer ./trainer
 RUN mkdir trained_models
 
 # Set up the entry point to invoke the trainer.
-ENTRYPOINT ["python3", "-m", "trainer.graybox_task"]
+ENTRYPOINT ["python3", "-m", "trainer.blackbox_task"]

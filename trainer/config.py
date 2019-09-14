@@ -13,7 +13,7 @@ config.train_clinical_csv = 'gs://duke-research-us/mimicknet/data/training_b-v2.
 config.validation_csv = 'gs://duke-research-us/mimicknet/data/validation-v2.csv'
 config.test_csv = 'gs://duke-research-us/mimicknet/data/testing-v2.csv'
 config.job_dir = 'gs://duke-research-us/mimicknet/tmp/{}'.format(str(time.time()))
-config.image_dir = './data/duke-ultrasound-v1'
+config.image_dir = 'gs://duke-research-us/mimicknet/data/duke-ultrasound-v1'
 config.model_dir = './trained_models'
 
 config.clipping = -80
