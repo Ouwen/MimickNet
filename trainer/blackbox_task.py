@@ -33,6 +33,8 @@ if __name__ == '__main__':
         if getattr(args, key) is not None:
             setattr(config, key, getattr(args, key))
 
+print(config.__dict__)
+
 LOG_DIR = config.job_dir
 MODEL_DIR = config.model_dir
 
