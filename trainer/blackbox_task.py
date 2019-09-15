@@ -30,8 +30,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
     # Merge params
     for key in vars(args):
-        if parser.get_default(key) is not None:
-            setattr(config, key, parser.get_default(key))
+        if getattr(args, key) is not None:
+            setattr(config, key, getattr(args, key))
 
 LOG_DIR = config.job_dir
 MODEL_DIR = config.model_dir

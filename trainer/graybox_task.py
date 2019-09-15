@@ -25,8 +25,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
     # Merge params
     for key in vars(args):
-        if parser.get_default(key) is not None:
-            setattr(config, key, parser.get_default(key))
+        if getattr(args, key) is not None:
+            setattr(config, key, getattr(args, key))
+
+print(config.__dict__)
 
 LOG_DIR = config.job_dir
 MODEL_DIR = config.model_dir
@@ -70,8 +72,7 @@ copy_keras = callbacks.CopyKerasModel(MODEL_DIR, LOG_DIR)
 saving = tf.keras.callbacks.ModelCheckpoint(MODEL_DIR + '/model.{epoch:02d}-{val_ssim:.10f}.hdf5', 
                                             monitor='val_ssim', verbose=1, save_freq='epoch', mode='max', save_best_only=True)
 
-early_stop = tf.keras.callbacks.EarlyStopping(monitor='val_loss', patience=3, verbose=1)
-reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=2, min_lr=0.002*.001)
+reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=3, min_lr=0.002*.001)
 log_code = callbacks.LogCode(LOG_DIR, './trainer')
 terminate = tf.keras.callbacks.TerminateOnNaN()
 image_gen = callbacks.GenerateImages(model, validation_dataset, LOG_DIR, interval=int(train_count/config.bs))
@@ -84,4 +85,4 @@ model.fit(train_dataset,
           validation_data=validation_dataset,
           validation_steps=int(val_count/config.bs),
           verbose=1,
-          callbacks=[log_code, terminate, tensorboard, saving, reduce_lr, copy_keras, image_gen, early_stop, get_csv_metrics])
+          callbacks=[log_code, terminate, tensorboard, saving, reduce_lr, copy_keras, image_gen, get_csv_metrics])
