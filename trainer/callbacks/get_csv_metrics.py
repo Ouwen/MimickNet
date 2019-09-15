@@ -18,9 +18,6 @@ class GetCsvMetrics(tf.keras.callbacks.Callback):
         self.csv_out_filepath = tf.io.gfile.GFile('{}/metrics.csv'.format(job_dir), 'wb')
         self.count = count
         
-        self.writer = csv.DictWriter(self.csv_out_filepath, fieldnames=_FIELDNAMES)
-        self.writer.writeheader()
-        self.csv_out_filepath.flush()
 
     def get_metrics(self, x, y):
         x = tf.constant(x, dtype=tf.float32)
@@ -40,7 +37,7 @@ class GetCsvMetrics(tf.keras.callbacks.Callback):
         for i in range(self.count):
             try:
                 iq, dtce, params = next(self.dataset_iterator)
-                filename = params['filename']
+                filename = params['filename'].numpy()[0].decode()
                 
                 iq = iq.numpy()
                 dtce = dtce.numpy()
@@ -59,13 +56,16 @@ class GetCsvMetrics(tf.keras.callbacks.Callback):
                 combined = {**tmp, **dtce_metrics}
                 combined['filename'] = filename
                 self.writer.writerow(combined)
-                print('{}/{} - {}'.format(i, self.count, filename.numpy()[0].decode()))
+                print('{}/{} - {}'.format(i, self.count, filename))
             except StopIteration:
                 print('End of test data')
                 break
         
     def on_train_end(self, logs={}):
         print('Running final validation metrics')
+        self.writer = csv.DictWriter(self.csv_out_filepath, fieldnames=_FIELDNAMES)
+        self.writer.writeheader()
+        self.csv_out_filepath.flush()
         self.full_validation()
         self.csv_out_filepath.flush()
 
@@ -78,8 +78,10 @@ if __name__ == '__main__':
     args = parser.parse_args()
         
     model = tf.keras.models.load_model(args.forward)
-    test_dataset, val_count = utils.MimickDataset().get_paired_ultrasound_dataset(csv=args.csv, batch_size=1)
+    test_dataset, test_count = utils.MimickDataset(
+        clipping=(-80,0)
+    ).get_paired_ultrasound_dataset(csv=args.csv, batch_size=1)
 
-    get_csv_metrics_data_callback = GetCsvMetrics(model, test_dataset, args.job_dir, count=val_count)
+    get_csv_metrics_data_callback = GetCsvMetrics(model, test_dataset, args.job_dir, count=test_count)
     get_csv_metrics_data_callback.full_validation()
     get_csv_metrics_data_callback.csv_out_filepath.flush()
