@@ -8,13 +8,12 @@ from functools import partial
 DEFAULT_BUCKET_DIR = 'gs://duke-research-us/mimicknet/data/duke-ultrasound-v1'
 
 class MimickDataset():
-    def __init__(self, clipping=(-80,0), divisible=16, sc=False, shape=None, image_dir=None, repeat=None, bucket_dir=DEFAULT_BUCKET_DIR):
+    def __init__(self, clipping=(-80,0), divisible=16, sc=False, shape=None, image_dir=None, bucket_dir=DEFAULT_BUCKET_DIR):
         self.image_dir = bucket_dir if image_dir is None else image_dir
         self.clipping = clipping
         self.sc = sc
         self.divisible = divisible
         self.shape = shape
-        self.repeat = None
         
     def read_mat_op(self, filename, irad, frad, iang, fang):           
         filepath = tf.io.gfile.GFile('{}/{}'.format(self.image_dir, filename.numpy().decode()), 'rb')
@@ -45,7 +44,7 @@ class MimickDataset():
     def get_dataset(self, csv):
         count = len(pd.read_csv(tf.io.gfile.GFile(csv, 'rb')))        
         dataset = tf.data.experimental.make_csv_dataset(csv, shuffle=False, batch_size=1).unbatch()
-        dataset = dataset.shuffle(count).repeat(self.repeat)
+        dataset = dataset.shuffle(count).repeat()
         images  = dataset.map(lambda x: tf.py_function(self.read_mat_op, [x['filename'], 
                                                                           x['initial_radius'], x['final_radius'], 
                                                                           x['initial_angle'], x['final_angle']], [tf.float32, tf.float32]), 

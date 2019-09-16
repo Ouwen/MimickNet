@@ -1,4 +1,3 @@
-from trainer import utils
 from trainer import config
 
 config.is_test = True

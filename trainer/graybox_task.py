@@ -1,59 +1,31 @@
 import tensorflow as tf
-import argparse
+from trainer import config
 from trainer import utils
 from trainer import models
 from trainer import callbacks
-from trainer import config
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-
-    # Input parser
-    parser.add_argument('--bs',       type=int, help='batch size')
-    parser.add_argument('--in_h',     type=int, help='image input size height')
-    parser.add_argument('--in_w',     type=int, help='image input size width')
-    parser.add_argument('--epochs',   type=int, help='number of epochs')
-    parser.add_argument('--m',        type=bool, help='manual run or hp tuning')
-    parser.add_argument('--train_csv', help='csv for paired training')
-    parser.add_argument('--validation_csv', help='csv for validation')
-    parser.add_argument('--test_csv', help='csv for testing')
-    
-    # Cloud ML Params
-    parser.add_argument('--job-dir', help='Job directory for Google Cloud ML')
-    parser.add_argument('--model_dir', help='Directory for trained models')
-    parser.add_argument('--image_dir', help='Local image directory')
-    args = parser.parse_args()
-    # Merge params
-    for key in vars(args):
-        if getattr(args, key) is not None:
-            setattr(config, key, getattr(args, key))
-
-print(config.__dict__)
 
 LOG_DIR = config.job_dir
 MODEL_DIR = config.model_dir
 
-train_dataset, train_count = utils.MimickDataset(
+# Load Data (Build your custom data loader and replace below)
+mimick = utils.MimickDataset(
     clipping=(config.clipping,0), 
     image_dir=config.image_dir,
     shape=(config.in_h, config.in_w)
-).get_paired_ultrasound_dataset(
+)
+train_dataset, train_count = mimick.get_paired_ultrasound_dataset(
     csv=config.train_csv, 
-    batch_size=config.bs)
+    batch_size=config.bs
+)
 train_dataset = train_dataset.map(lambda x,y,z: (x,y))
-
-validation_dataset, val_count = utils.MimickDataset(
-    clipping=(config.clipping,0), 
-    image_dir=config.image_dir,
-    shape=(config.in_h, config.in_w)
-).get_paired_ultrasound_dataset(
+validation_dataset, val_count = mimick.get_paired_ultrasound_dataset(
     csv=config.validation_csv, 
-    batch_size=config.bs)
+    batch_size=config.bs
+)
 validation_dataset = validation_dataset.map(lambda x,y,z: (x,y))
-
-test_dataset, test_count = utils.MimickDataset(
-    clipping=(config.clipping,0)
-).get_paired_ultrasound_dataset(csv=config.test_csv, batch_size=1)
+test_dataset, test_count = mimick.get_paired_ultrasound_dataset(
+    csv=config.test_csv, batch_size=1
+)
 
 if config.is_test:
     test_count, train_count, val_count, config.bs = 1,1,1,1

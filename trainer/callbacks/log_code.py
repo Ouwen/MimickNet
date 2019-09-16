@@ -13,12 +13,15 @@ class LogCode(tf.keras.callbacks.Callback):
         self.started = False
 
     def make_tarfile(self, log_dir, code_dir):
-        def exclude_function(filename):
-            return True if filename.endswith('.pyc') else False
-        
+        def filter_function(tarinfo):
+            if tarinfo.name.endswith('.pyc'):
+                return None
+            else:
+                return tarinfo
+
         filepath = '{}.tar.gz'.format(str(time.time()), 'w:gz')
         with tarfile.open(filepath, 'w:gz') as tar:
-            tar.add(code_dir, arcname=os.path.basename(code_dir), exclude=exclude_function)
+            tar.add(code_dir, arcname=os.path.basename(code_dir), filter=filter_function)
         with file_io.FileIO(filepath, mode='rb') as input_f:
             with file_io.FileIO(os.path.join(log_dir, os.path.basename(filepath)), mode='wb+') as of:
                 of.write(input_f.read())

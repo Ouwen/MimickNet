@@ -1,75 +1,42 @@
 import tensorflow as tf
-import argparse
+from trainer import config
 from trainer import utils
 from trainer import models
 from trainer import callbacks
-from trainer import config
-
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-
-    # Input parser
-    parser.add_argument('--bs',       type=int, help='batch size')
-    parser.add_argument('--in_h',     type=int, help='image input size height')
-    parser.add_argument('--in_w',     type=int, help='image input size width')
-    parser.add_argument('--epochs',   type=int, help='number of epochs')
-    parser.add_argument('--m',        type=bool, help='manual run or hp tuning')
-    parser.add_argument('--train_das_csv', help='csv with das images for training')
-    parser.add_argument('--train_clinical_csv', help='csv with clinical images for training')
-    parser.add_argument('--validation_csv', help='csv for validation')
-    parser.add_argument('--test_csv', help='csv for testing')
-    
-    # Modeling parser
-    parser.add_argument('--clipping', type=float, help='DAS dB clipping')
-    parser.add_argument('--kernel_height', type=int, help='height of convolution kernel')
-    
-    # Cloud ML Params
-    parser.add_argument('--job-dir', help='Job directory for Google Cloud ML')
-    parser.add_argument('--model_dir', help='Directory for trained models')
-    parser.add_argument('--image_dir', help='Local image directory')
-    args = parser.parse_args()
-    # Merge params
-    for key in vars(args):
-        if getattr(args, key) is not None:
-            setattr(config, key, getattr(args, key))
-
-print(config.__dict__)
 
 LOG_DIR = config.job_dir
 MODEL_DIR = config.model_dir
 
 # Load Data (Build your custom data loader and replace below)
-iq_dataset, iq_count = utils.MimickDataset(
+mimick = utils.MimickDataset(
     clipping=(config.clipping,0), 
     image_dir=config.image_dir,
     shape=(config.in_h, config.in_w)
-).get_unpaired_ultrasound_dataset(
+)
+
+iq_dataset, iq_count = mimick.get_unpaired_ultrasound_dataset(
     domain='iq',
     csv=config.train_das_csv, 
-    batch_size=config.bs)
+    batch_size=config.bs
+)
 iq_dataset = iq_dataset.map(lambda x,z: x)
 
-dtce_dataset, dtce_count = utils.MimickDataset(
-    clipping=(config.clipping,0), 
-    image_dir=config.image_dir,
-    shape=(config.in_h, config.in_w)
-).get_unpaired_ultrasound_dataset(
+dtce_dataset, dtce_count = mimick.get_unpaired_ultrasound_dataset(
     domain='dtce',
     csv=config.train_clinical_csv, 
-    batch_size=config.bs)
-dtce_dataset = dtce_dataset.map(lambda y,z: y)
+    batch_size=config.bs
+)
+dtce_dataset = dtce_dataset.map(lambda x,z: x)
 
-validation_dataset, val_count = utils.MimickDataset(
-    clipping=(config.clipping,0), 
-    image_dir=config.image_dir,
-    shape=(config.in_h, config.in_w)
-).get_paired_ultrasound_dataset(
+validation_dataset, val_count = mimick.get_paired_ultrasound_dataset(
     csv=config.validation_csv, 
-    batch_size=config.bs)
+    batch_size=config.bs
+)
 validation_dataset = validation_dataset.map(lambda x,y,z: (x,y))
-test_dataset, test_count = utils.MimickDataset(
-    clipping=(config.clipping,0)
-).get_paired_ultrasound_dataset(csv=config.test_csv, batch_size=1)
+
+test_dataset, test_count = mimick.get_paired_ultrasound_dataset(
+    csv=config.test_csv, 
+    batch_size=1)
 
 if config.is_test: 
     test_count, iq_count, val_count, config.bs = 1,1,1,1
