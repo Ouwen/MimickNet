@@ -8,7 +8,7 @@ The above is a cineloop of cardiac data with conventional delay-and-sum beamform
 ## Quick Start
 You can use the model immediately in [this google colab notebook](https://colab.research.google.com/drive/1VV34wK6Onk_pr5D9fuSdkIeoig6KvK2d)
 
-The model from the paper is provided as `mimicknet.h5`. We also provide a luminance adjusted version `mimicknet_luminance_adjusted.h5`, and a matlab compatible version `matlab_mimicknet_small_ladj.h5`.
+The model from the paper is provided as `mimicknet.h5`. We also provide a luminance adjusted version with fewer weights which is compatible with matlab `matlab_mimicknet_small_ladj.h5`.
 
 A notebook and sample data is provided under `examples` for use in the following environments:
  - [`python`](https://github.com/Ouwen/MimickNet/blob/master/examples/python3_example.ipynb)
@@ -38,15 +38,22 @@ A notebook and sample data is provided under `examples` for use in the following
   bibsource = {dblp computer science bibliography, https://dblp.org}
 }
 ```
+
+## TODO
+ - Provide phantom dataset to public
+ - Mobile Metrics
+ - pip package model + util functions
+ - Add hyper parameter tuning code for blackbox
+ 
 ## Training the model from scratch
 The following repo was designed to be run in Google Cloud and makes use of GCS for logging.
 ```
-python3 -m trainer.blackbox_paper
+python3 -m trainer.blackbox_task
 ```
-Different hyperparameters can be selected. Different tasks are shown in the root directory of the `trainer`. `blackbox_paper.py`, and `graybox_paper.py` are the configurations used in the paper: "MimickNet, Matching Clinical Post-Processing Under Realistic Black-Box Constraints". `blackbox_simply_small.py` strips away many of the options used for hyperparameter exploration for readability. If you have your own dataset it is recommended to start from this file.
+Different hyperparameters can be selected. Different tasks are shown in the root directory of the `trainer`. `blackbox_task.py`, and `graybox_task.py` are for running the blackbox and graybox tasks in the paper: "MimickNet, Matching Clinical Post-Processing Under Realistic Black-Box Constraints". `blackbox_paper_v1.py`, is the exact code run for the first release.
 
 ### Custom data
-The current model uses the dataset loader found in `trainer.utils.dataset`. This dataset takes in two lists from different domains `A` and `B`. The dataset returns elements which are 4D tensors. Each dimension represents `[batch, height, width, 1]`. You can create your own dataset class, it simply needs to return a 4D tensor, and the total count of elements. See [here](https://www.tensorflow.org/datasets/overview) on how to use tensorflow datasets.
+The current model uses the dataset loader found in `./trainer/utils/dataset.py`. This dataset takes in two lists from different domains `A` and `B`. The dataset returns elements which are 4D tensors. Each dimension represents `[batch, height, width, 1]`. You can create your own dataset class, it simply needs to return a 4D tensor, and count the total number of elements. See [here](https://www.tensorflow.org/datasets/overview) on how to use tensorflow datasets.
 
 # Contributing and Issues
 Contributions are welcome in the form of pull requests.

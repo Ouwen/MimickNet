@@ -28,7 +28,7 @@ class MimickDataset():
         if self.clipping is not None:        
             iq = 20*np.log10(iq/iq.max())
             iq = np.clip(iq, self.clipping[0], self.clipping[1])
-        elif self.log_compress: 
+        else: 
             iq = np.log10(iq)
         iq = (iq-iq.min())/(iq.max() - iq.min())
 

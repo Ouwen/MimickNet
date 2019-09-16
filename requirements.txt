@@ -1,5 +1,0 @@
-pandas
-scipy
-polarTransform
-numpy
-tensorflow
