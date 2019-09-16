@@ -1,4 +1,4 @@
-from trainer import config
+from trainer.config import config
 
 config.is_test = True
 config.epochs = 1

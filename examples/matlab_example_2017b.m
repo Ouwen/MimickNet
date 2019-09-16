@@ -33,12 +33,12 @@ raw_iq(raw_iq <-50) = -50;
 raw_iq = (raw_iq - min(raw_iq(:)))/(max(raw_iq(:)) - min(raw_iq(:)));
 raw_iq = make_shape(raw_iq, 16);
 
-% Plot Raw Beamformed
+% Plot Delay and Sum
 subplot(1,2,1);
 imagesc(raw_iq);
 colormap gray;
 set(gca,'XColor', 'none','YColor','none')
-title('Raw Beamformed');
+title('Delay and Sum');
 
 % Plot MimickNet
 subplot(1,2,2);

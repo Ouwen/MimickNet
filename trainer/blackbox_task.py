@@ -1,5 +1,5 @@
 import tensorflow as tf
-from trainer import config
+from trainer.config import config
 from trainer import utils
 from trainer import models
 from trainer import callbacks
