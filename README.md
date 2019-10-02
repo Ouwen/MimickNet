@@ -13,7 +13,7 @@ The model from the paper is provided as `mimicknet.h5`. We also provide a lumina
 The `mimicknet_phantom_verasonics.h5` models were generated with the 
 
 A notebook and sample data is provided under `examples` for use in the following environments:
- - [`matlab`](https://github.com/Ouwen/MimickNet/blob/master/examples/matlab_example.m)
+ - [`matlab`](https://github.com/Ouwen/MimickNet/blob/master/examples/matlab_example_2019a.m)
 
 [Dr. Mark Palmeri's](https://github.com/mlp6) liver and kidney images are provided as test examples (Thanks Mark!)
 
@@ -43,7 +43,7 @@ The following repo was designed to be run in Google Cloud and makes use of GCS f
 ```
 python3 -m trainer.blackbox_task
 ```
-Different hyperparameters can be selected. Different tasks are shown in the root directory of the `trainer`. `blackbox_task.py`, and `graybox_task.py` are for running the blackbox and graybox tasks in the paper: "MimickNet, Matching Clinical Post-Processing Under Realistic Black-Box Constraints". `blackbox_paper_v1.py`, is the exact code run for the first release.
+Different hyperparameters can be selected. Different tasks are shown in the root directory of the `trainer`. `blackbox_task.py`, and `graybox_task.py` are for running the blackbox and graybox tasks in the paper: [MimickNet, Matching Clinical Post-Processing Under Realistic Black-Box Constraints](https://arxiv.org/abs/1908.05782). `blackbox_paper_v1.py`, is the exact code run for the first release.
 
 ### Train the model in docker
 To train this repo within a docker container, first clone the repo and run the following command in the root directory.
