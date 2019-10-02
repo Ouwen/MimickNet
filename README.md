@@ -31,8 +31,8 @@ MimickNet Mark are results only on Mark's liver/cardiac data.
 
 | Model Phantom     | SSIM          | PSNR          |
 | ----------------- |:-------------:|:-------------:|
-| MimickNet Phantom | 0.91 ± 0.016  | 33.57 ± 2.17  |
-| MimickNet Mark    | 0.92 ± 0.005  | 31.40 ± 0.75  |
+| MimickNet Phantom | 0.90 ± 0.015  | 31.40 ± 2.76  |
+| MimickNet Mark    | 0.91 ± 0.005  | 31.43 ± 0.69  |
 
 Results above used only public phantom data for training.
 MimickNet Phantom are results only on phantom testing data.
