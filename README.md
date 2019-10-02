@@ -6,7 +6,7 @@
 The above is a cineloop of cardiac data with conventional delay-and-sum beamforming and [ReFoCUS](https://ieeexplore.ieee.org/document/8580195) beamforming. We apply clinical-grade post-processing, MimickNet post-processing, and show the unscaled difference between the two.
 
 ## Quick Start
-You can use the model immediately in [this google colab notebook](https://colab.research.google.com/drive/1R_ARqpWoiHcUQWg1Fxwyx-ZkLi0IZ5qs)
+## You can use the model immediately in [this google colab notebook](https://colab.research.google.com/drive/1R_ARqpWoiHcUQWg1Fxwyx-ZkLi0IZ5qs)
 
 The model from the paper is provided as `mimicknet.h5`. We also provide a luminance adjusted version with fewer weights with `matlab_mimicknet.h5` and `python_mimicknet.h5`. The `python` prefix allows for padding to be apart of the model, so no 16 padding logic is required. However, the layer used is incompatible with matlab, thus the matlab version has no pre-padding.
 
