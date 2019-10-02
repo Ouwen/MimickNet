@@ -18,16 +18,17 @@ A notebook and sample data is provided under `examples` for use in the following
 [Dr. Mark Palmeri's](https://github.com/mlp6) liver and kidney images are provided as test examples (Thanks Mark!)
 
 ## Metrics
-| Model All         | SSIM          | PSNR          |
-| ----------------- |:-------------:|:-------------:|
-| MimickNet         | 0.94 ± 0.014  | 31.95 ± 2.04  |
-| MimickNet Mark    | 0.96 ± 0.005  | 33.12 ± 0.92  |
-| GrayBox           | 0.96 ± 0.012  | 32.86 ± 1.82  |
+| Model All            | SSIM          | PSNR          |
+| ---------------------|:-------------:|:-------------:|
+| MimickNet (BlackBox) | 0.94 ± 0.014  | 31.95 ± 2.04  |
+| GrayBox              | 0.96 ± 0.012  | 32.86 ± 1.82  |
+| MimickNet Phantom    | 0.95 ± 0.007  | 33.50 ± 1.43  |
+| MimickNet Mark       | 0.96 ± 0.005  | 33.12 ± 0.92  |
 
 Results above used non-public invivio + phantom data. 
 Testing is on non-public invivo + phantom data.
 MimickNet Mark are results only on Mark's liver/cardiac data.
-
+MimickNet Phantom are results only on the public phantom data test split.
 
 | Model Phantom     | SSIM          | PSNR          |
 | ----------------- |:-------------:|:-------------:|
@@ -35,7 +36,7 @@ MimickNet Mark are results only on Mark's liver/cardiac data.
 | MimickNet Mark    | 0.91 ± 0.005  | 31.43 ± 0.69  |
 
 Results above used only public phantom data for training.
-MimickNet Phantom are results only on phantom testing data.
+MimickNet Phantom are results only on the public phantom data test data.
 MimickNet Mark are results only on Mark's liver/cardiac data.
 
 ## Training the model from scratch
