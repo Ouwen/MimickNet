@@ -79,6 +79,13 @@ http://www.apache.org/licenses/LICENSE-2.0
 
 Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the specific language governing permissions and limitations under the License.
 
+## Thanks
+This work was supported by the National Institute of
+Biomedical Imaging and Bioengineering under Grant R01-
+EB026574, and National Institutes of Health under Grant
+5T32GM007171-44. The authors would like to thank Siemens
+Medical Inc. USA for in kind technical support.
+
 ## Citing
 ```
 @article{DBLP:journals/corr/abs-1908-05782,
