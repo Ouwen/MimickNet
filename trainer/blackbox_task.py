@@ -117,7 +117,6 @@ early_stopping = callbacks.MultiEarlyStopping(multi_models=[g_AB, g_BA, d_A, d_B
                                               restore_best_weights=True, verbose=1)
 
 image_gen = callbacks.GenerateImages(g_AB, validation_dataset, LOG_DIR, interval=int(iq_count/config.bs))
-get_csv_metrics = callbacks.GetCsvMetrics(g_AB, test_dataset, LOG_DIR, count=test_count)
 
 # Fit the model
 model.fit(iq_dataset, dtce_dataset,
@@ -126,4 +125,4 @@ model.fit(iq_dataset, dtce_dataset,
           validation_data=validation_dataset,
           validation_steps=int(val_count/config.bs),
           callbacks=[log_code, reduce_lr, tensorboard, prog_bar, image_gen, saving, 
-                     copy_keras, start_tensorboard, get_csv_metrics, early_stopping])
+                     copy_keras, start_tensorboard, early_stopping])

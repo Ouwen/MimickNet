@@ -64,7 +64,6 @@ reduce_lr = tf.keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2,
 log_code = callbacks.LogCode(LOG_DIR, './trainer')
 terminate = tf.keras.callbacks.TerminateOnNaN()
 image_gen = callbacks.GenerateImages(model, validation_dataset, LOG_DIR, interval=int(train_count/config.bs))
-get_csv_metrics = callbacks.GetCsvMetrics(model, test_dataset, LOG_DIR, count=test_count)
 
 # Fit the model
 model.fit(train_dataset,
@@ -73,4 +72,4 @@ model.fit(train_dataset,
           validation_data=validation_dataset,
           validation_steps=int(val_count/config.bs),
           verbose=1,
-          callbacks=[log_code, terminate, tensorboard, saving, reduce_lr, copy_keras, image_gen, get_csv_metrics])
+          callbacks=[log_code, terminate, tensorboard, saving, reduce_lr, copy_keras, image_gen])
