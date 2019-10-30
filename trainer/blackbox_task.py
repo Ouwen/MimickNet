@@ -93,7 +93,7 @@ model.compile(optimizer=tf.keras.optimizers.Adam(0.0002, 0.5),
                  'mae', 'mae'
               ], loss_weights = [
                  1,  1,
-                 10, 10,
+                 config.cycle_consistency_loss, config.cycle_consistency_loss,
                  1,  1
               ],
               metrics=[utils.ssim, utils.psnr, utils.mae, utils.mse])
