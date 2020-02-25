@@ -17,6 +17,7 @@
 % Requires Deep Learning Toolbox
 % Requires Parallel Computing Toolbox
 % Requires the Deep Learning Toolbox Importer for Keras Models support package. To install this support package, use the Add-On Explorer
+% Due to compatibilty issues of keras with matlab, please contact ouwen.huang@duke.edu for the matlab compatible version.
 
 %%
 net = importKerasNetwork('mimicknet_1568473738-210304.h5', ...
