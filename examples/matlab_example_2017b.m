@@ -16,6 +16,7 @@
 % Requires Computer Vision ToolBox
 % Requires Deep Learning Toolbox
 % Requires Parallel Computing Toolbox
+% Due to compatibilty issues of keras with matlab, please contact ouwen.huang@duke.edu for the matlab compatible version.
 
 %%
 layers = importKerasLayers('mimicknet_1568473738-210304.h5', ...
