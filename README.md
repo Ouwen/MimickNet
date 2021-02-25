@@ -88,23 +88,13 @@ Medical Inc. USA for in kind technical support.
 
 ## Citing
 ```
-@article{DBLP:journals/corr/abs-1908-05782,
-  author    = {Ouwen Huang and
-               Will Long and
-               Nick Bottenus and
-               Gregg E. Trahey and
-               Sina Farsiu and
-               Mark L. Palmeri},
-  title     = {MimickNet, Matching Clinical Post-Processing Under Realistic Black-Box
-               Constraints},
-  journal   = {CoRR},
-  volume    = {abs/1908.05782},
-  year      = {2019},
-  url       = {http://arxiv.org/abs/1908.05782},
-  archivePrefix = {arXiv},
-  eprint    = {1908.05782},
-  timestamp = {Mon, 19 Aug 2019 13:21:03 +0200},
-  biburl    = {https://dblp.org/rec/bib/journals/corr/abs-1908-05782},
-  bibsource = {dblp computer science bibliography, https://dblp.org}
-}
+@ARTICLE{8977476,
+  author={O. {Huang} and W. {Long} and N. {Bottenus} and M. {Lerendegui} and G. E. {Trahey} and S. {Farsiu} and M. L. {Palmeri}},
+  journal={IEEE Transactions on Medical Imaging}, 
+  title={MimickNet, Mimicking Clinical Image Post- Processing Under Black-Box Constraints}, 
+  year={2020},
+  volume={39},
+  number={6},
+  pages={2277-2286},
+  doi={10.1109/TMI.2020.2970867}}
 ```
