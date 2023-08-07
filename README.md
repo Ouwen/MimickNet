@@ -10,7 +10,7 @@ The above is a cineloop of cardiac data with conventional delay-and-sum beamform
 
 The model from the paper is provided as `mimicknet_legacy.h5`. We also provide a luminance adjusted version with fewer weights with `mimicknet_1568473738-210304.h5` and `padded_mimicknet_1568473738-210304.h5`. The `padded` prefix allows for padding to be apart of the model, so no 16 padding logic is required. However, the layer used is incompatible with matlab, thus the matlab version has no pre-padding.
 
-The `mimicknet_phantom_verasonics.h5` models were generated with the 
+The `mimicknet_phantom_verasonics.h5` models were generated with only phantom data from verasonics.
 
 A notebook and sample data is provided under `examples` for use in the following environments:
  - [`matlab`](https://github.com/Ouwen/MimickNet/blob/master/examples/matlab_example_2019a.m)
